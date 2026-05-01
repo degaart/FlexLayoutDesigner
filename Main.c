@@ -150,6 +150,24 @@ static void ApplyFont(HWND hwnd, HFONT hfont)
     }
 }
 
+static HTREEITEM InsertTreeItem(
+        HWND hTree,
+        HTREEITEM parent,
+        const char* label,
+        void* data)
+{
+    TVINSERTSTRUCT tis = {0};
+    tis.hParent = parent;
+    tis.hInsertAfter = TVI_LAST;
+    tis.itemex.mask = TVIF_TEXT|TVIF_PARAM;
+    tis.itemex.pszText = (LPSTR)label;
+    tis.itemex.lParam = (LPARAM)data;
+    HTREEITEM hItem = TreeView_InsertItem(hTree, &tis);
+    TreeView_Expand(hTree, parent, TVE_EXPAND);
+    TreeView_SelectItem(hTree, hItem);
+    return hItem;
+}
+
 static void OnCreate(HWND hwnd, AppState* appState)
 {
     SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)appState);
@@ -192,14 +210,10 @@ static void OnCreate(HWND hwnd, AppState* appState)
         appState->hInstance,
         0L);
 
-    TVINSERTSTRUCT tis = {0};
-    tis.hInsertAfter = TVI_ROOT;
-    tis.itemex.mask = TVIF_TEXT|TVIF_PARAM;
-    tis.itemex.pszText = "root";
-    tis.itemex.lParam = 0L;
-    appState->hRootTreeItem = TreeView_InsertItem(appState->hLayoutTree, &tis);
-    TreeView_SelectItem(appState->hLayoutTree, appState->hRootTreeItem);
-    TreeView_Expand(appState->hLayoutTree, appState->hRootTreeItem, TVE_EXPAND);
+    appState->hRootTreeItem = InsertTreeItem(appState->hLayoutTree,
+            NULL,
+            "root",
+            NULL);
 
     GroupBox_Create(appState->hInstance, hwnd,
             "Layout",
@@ -268,16 +282,10 @@ static void OnAdd(AppState* appState, HWND hwnd, HWND hButton)
 
     char label[32];
     snprintf(label, sizeof(label), "%d", ++appState->index);
-
-    TVINSERTSTRUCT tis = {0};
-    tis.hParent = parent;
-    tis.hInsertAfter = TVI_LAST;
-    tis.itemex.mask = TVIF_TEXT|TVIF_PARAM;
-    tis.itemex.pszText = label;
-    tis.itemex.lParam = (LPARAM)appState->index;
-    HTREEITEM hNewItem = TreeView_InsertItem(appState->hLayoutTree, &tis);
-    TreeView_Expand(appState->hLayoutTree, parent, TVE_EXPAND);
-    TreeView_SelectItem(appState->hLayoutTree, hNewItem);
+    InsertTreeItem(appState->hLayoutTree,
+            parent,
+            label,
+            (void*)(uintptr_t)appState->index);
 }
 
 static void OnCommand(AppState* appState, HWND hwnd, HWND hButton, unsigned buttonID)
