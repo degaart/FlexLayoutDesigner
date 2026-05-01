@@ -26,7 +26,7 @@
 
 #include <Windows.h>
 #include <stdbool.h>
-#include "flex.h"
+#include "flex/flex.h"
 
 #define APPNAME "TimeTracker"
 
