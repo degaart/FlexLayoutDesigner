@@ -1,7 +1,6 @@
 #include "ScrollView.h"
 
 #include "Trace.h"
-#include <stdio.h>
 
 #define CLASSNAME "ScrollView"
 
