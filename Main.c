@@ -27,11 +27,11 @@
 #include "flex/flex.h"
 #include "LayoutView.h"
 #include "ScrollView.h"
+#include "GroupBox.h"
 #include <CommCtrl.h>
 #include <stdio.h>
 
 #define APPNAME "FlexLayoutDesigner"
-#define SUBCLASSID_GROUPBOX 0
 
 enum ButtonIDs
 {
@@ -150,19 +150,6 @@ static void ApplyFont(HWND hwnd, HFONT hfont)
     }
 }
 
-static LRESULT CALLBACK GroupBoxSubclassProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam, UINT_PTR uid, DWORD_PTR data)
-{
-    if (msg == WM_ERASEBKGND)
-    {
-        HDC hdc = (HDC)wparam;
-        RECT rc;
-        GetClientRect(hwnd, &rc);
-        FillRect(hdc, &rc, (HBRUSH)(COLOR_BTNFACE + 1));
-        return 1;
-    }
-    return DefSubclassProc(hwnd, msg, wparam, lparam);
-}
-
 static void OnCreate(HWND hwnd, AppState* appState)
 {
     SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)appState);
@@ -214,17 +201,10 @@ static void OnCreate(HWND hwnd, AppState* appState)
     TreeView_SelectItem(appState->hLayoutTree, appState->hRootTreeItem);
     TreeView_Expand(appState->hLayoutTree, appState->hRootTreeItem, TVE_EXPAND);
 
-    HWND layoutGroupBox = CreateWindow(
-        "BUTTON",
-        "Layout",
-        WS_CHILD|WS_VISIBLE|WS_CLIPSIBLINGS|BS_GROUPBOX,
-        0, 32+10+32+20,
-        300, 200,
-        hwnd,
-        NULL,
-        appState->hInstance,
-        0L);
-    SetWindowSubclass(layoutGroupBox, GroupBoxSubclassProc, SUBCLASSID_GROUPBOX, 0);
+    GroupBox_Create(appState->hInstance, hwnd,
+            "Layout",
+            0, 32+10+32+20,
+            300, 200);
 
     HWND propertiesContainer = ScrollView_Create(appState->hInstance,
                                                  hwnd,
@@ -234,17 +214,11 @@ static void OnCreate(HWND hwnd, AppState* appState)
     CreateProperties(appState->hInstance, propertiesContainer);
     SendMessage(propertiesContainer, SVM_UPDATESCROLL, 0, 0);
 
-    HWND propertiesGroupBox = CreateWindow(
-        "BUTTON",
-        "Properties",
-        WS_CHILD|WS_VISIBLE|WS_CLIPSIBLINGS|BS_GROUPBOX,
-        0, 32+10+32+10+200+20,
-        300, 200,
-        hwnd,
-        NULL,
-        appState->hInstance,
-        0L);
-    SetWindowSubclass(propertiesGroupBox, GroupBoxSubclassProc, SUBCLASSID_GROUPBOX, 0);
+    GroupBox_Create(appState->hInstance,
+            hwnd,
+            "Properties",
+            0, 32+10+32+10+200+20,
+            300, 200);
 
     appState->hLayoutView = LayoutView_Create(appState->hInstance,
                                               hwnd,
