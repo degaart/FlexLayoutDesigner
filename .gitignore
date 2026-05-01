@@ -1,0 +1,6 @@
+/build
+/CMakeFile
+/CMakeFiles
+/.vscode
+/.cache
+
