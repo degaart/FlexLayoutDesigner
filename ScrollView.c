@@ -3,6 +3,7 @@
 #include "Trace.h"
 
 #define CLASSNAME "ScrollView"
+#define SVM_UPDATESCROLL (WM_USER+1)
 
 struct EnumChildParams
 {
@@ -156,3 +157,9 @@ HWND ScrollView_Create(HINSTANCE hInstance, HWND hParent, int x, int y, int w, i
         hInstance,
         0L);
 }
+
+void ScrollView_UpdateScroll(HWND hwnd)
+{
+    SendMessage(hwnd, SVM_UPDATESCROLL, 0, 0);
+}
+

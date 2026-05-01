@@ -28,6 +28,7 @@
 #include "LayoutView.h"
 #include "ScrollView.h"
 #include "GroupBox.h"
+#include "Trace.h"
 #include <CommCtrl.h>
 #include <stdio.h>
 
@@ -46,6 +47,7 @@ typedef struct AppState
     HWND hLayoutView;
     HWND hLayoutTree;
     HTREEITEM hRootTreeItem;
+    struct flex_item* rootFlex;
     int index;
 } AppState;
 
@@ -210,10 +212,20 @@ static void OnCreate(HWND hwnd, AppState* appState)
         appState->hInstance,
         0L);
 
+    appState->rootFlex = flex_item_new();
+    flex_item_set_left(appState->rootFlex, 0.0f);
+    flex_item_set_top(appState->rootFlex, 0.0f);
+    flex_item_set_width(appState->rootFlex, rc.right - rc.left);
+    flex_item_set_height(appState->rootFlex, rc.bottom - rc.top);
+    flex_item_set_right(appState->rootFlex, rc.right);
+    flex_item_set_bottom(appState->rootFlex, rc.bottom);
+    flex_item_set_managed_ptr(appState->rootFlex, 0);
+    flex_layout(appState->rootFlex);
+
     appState->hRootTreeItem = InsertTreeItem(appState->hLayoutTree,
             NULL,
             "root",
-            NULL);
+            appState->rootFlex);
 
     GroupBox_Create(appState->hInstance, hwnd,
             "Layout",
@@ -226,7 +238,7 @@ static void OnCreate(HWND hwnd, AppState* appState)
                                                  280, 170);
 
     CreateProperties(appState->hInstance, propertiesContainer);
-    SendMessage(propertiesContainer, SVM_UPDATESCROLL, 0, 0);
+    ScrollView_UpdateScroll(propertiesContainer);
 
     GroupBox_Create(appState->hInstance,
             hwnd,
@@ -238,6 +250,7 @@ static void OnCreate(HWND hwnd, AppState* appState)
                                               hwnd,
                                               310, 10,
                                               rc.right - rc.left - 200 - 20, rc.bottom - rc.top - 20);
+    LayoutView_SetRootFlex(appState->hLayoutView, appState->rootFlex);
 
     NONCLIENTMETRICS ncm = {sizeof(ncm)};
     SystemParametersInfo(SPI_GETNONCLIENTMETRICS, sizeof(ncm), &ncm, 0);
@@ -264,6 +277,12 @@ static void OnSize(AppState* appState, HWND hwnd, WORD width, WORD height)
         layoutViewHeight = height - rc.top - 10;
     }
 
+    flex_item_set_left(appState->rootFlex, 0.0f);
+    flex_item_set_top(appState->rootFlex, 0.0f);
+    flex_item_set_width(appState->rootFlex, rc.right - rc.left);
+    flex_item_set_height(appState->rootFlex, rc.bottom - rc.top);
+    flex_layout(appState->rootFlex);
+
     SetWindowPos(appState->hLayoutView,
                  NULL,
                  rc.left, rc.right,
@@ -280,12 +299,30 @@ static void OnAdd(AppState* appState, HWND hwnd, HWND hButton)
         return;
     }
 
+    TVITEMEX tie = {0};
+    tie.mask = TVIF_PARAM;
+    tie.hItem = parent;
+    if (!TreeView_GetItem(appState->hLayoutTree, &tie))
+    {
+        TRACE("TreeView_GetItem failed");
+    }
+
     char label[32];
     snprintf(label, sizeof(label), "%d", ++appState->index);
+
+    struct flex_item* flexItem = flex_item_new();
+    flex_item_set_managed_ptr(flexItem, (void*)(uintptr_t)appState->index);
+    flex_item_set_width(flexItem, 32.0f);
+    flex_item_set_height(flexItem, 32.0f);
+    flex_item_add((struct flex_item*)tie.lParam, flexItem);
+    flex_layout(appState->rootFlex);
+
     InsertTreeItem(appState->hLayoutTree,
             parent,
             label,
-            (void*)(uintptr_t)appState->index);
+            flexItem);
+
+    InvalidateRect(appState->hLayoutView, NULL, FALSE);
 }
 
 static void OnCommand(AppState* appState, HWND hwnd, HWND hButton, unsigned buttonID)
