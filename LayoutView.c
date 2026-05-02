@@ -3,9 +3,22 @@
 #include "flex/flex.h"
 #include "Trace.h"
 #include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 #define CLASSNAME "LayoutView"
-#define LVM_SET_ROOTFLEX (WM_USER+1)
+
+enum Messages
+{
+    LVM_SET_ROOTFLEX = WM_USER+1,
+    LVM_SET_SELECTEDFLEX,
+};
+
+typedef struct WindowData
+{
+    struct flex_item* rootFlex;
+    struct flex_item* selectedFlex;
+} WindowData;
 
 uint32_t GenerateColor(int index)
 {
@@ -16,10 +29,10 @@ uint32_t GenerateColor(int index)
     return ((uint32_t)index * 2654435761u) >> 8;
 }
 
-static void PaintFlex(HDC hdc, struct flex_item* flex)
+static void PaintFlex(HDC hdc, WindowData* data, struct flex_item* flex)
 {
     int index = (uintptr_t)flex_item_get_managed_ptr(flex);
-    uint32_t color = GenerateColor(index);
+    uint32_t color = GenerateColor(index) & 0xFFFFFF;
     TRACE("Index=%d color=0x%X", index, color);
 
     RECT rc;
@@ -31,57 +44,86 @@ static void PaintFlex(HDC hdc, struct flex_item* flex)
      * We have to hack around that
      */
     int width = flex_item_get_frame_width(flex);
-    if (width == 0)
+    int height = flex_item_get_frame_height(flex);
+    if (flex == data->rootFlex && flex_item_count(flex) == 0)
     {
         width = flex_item_get_width(flex);
-    }
-
-    int height = flex_item_get_frame_height(flex);
-    if (height == 0)
-    {
         height = flex_item_get_height(flex);
     }
-
     rc.right = rc.left + width;
     rc.bottom = rc.top + height;
 
     HBRUSH brush = CreateSolidBrush(color);
-    FillRect(hdc, &rc, brush);
+    if (flex == data->selectedFlex)
+    {
+        HPEN pen = CreatePen(PS_SOLID, 1, color ^ 0x00FFFFFF);
+        SelectObject(hdc, pen);
+        SelectObject(hdc, brush);
+        Rectangle(hdc, rc.left, rc.top, rc.right, rc.bottom);
+        DeleteObject(pen);
+    }
+    else
+    {
+        FillRect(hdc, &rc, brush);
+    }
     DeleteObject(brush);
+
+    char text[16];
+    snprintf(text, sizeof(text), "%d", index);
+
+    SetBkColor(hdc, color);
+    SetTextAlign(hdc, TA_BASELINE|TA_CENTER);
+    SetTextColor(hdc, color ^ 0x00FFFFFF);
+    ExtTextOut(hdc,
+            rc.left + ((rc.right - rc.left)/2),
+            rc.top + ((rc.bottom - rc.top)/2),
+            ETO_OPAQUE,
+            NULL,
+            text,
+            strlen(text),
+            NULL);
 
     unsigned children = flex_item_count(flex);
     for (unsigned i = 0; i < children; i++)
     {
-        PaintFlex(hdc, flex_item_child(flex, i));
+        PaintFlex(hdc, data, flex_item_child(flex, i));
     }
 }
 
-static void OnSetRootFlex(HWND hwnd, struct flex_item* rootFlex)
+static void OnPaint(HWND hwnd, HDC hdc, PAINTSTRUCT* ps, WindowData* data)
 {
-    SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)rootFlex);
-}
-
-static void OnPaint(HWND hwnd, HDC hdc, PAINTSTRUCT* ps, struct flex_item* rootFlex)
-{
-    PaintFlex(hdc, rootFlex);
+    PaintFlex(hdc, data, data->rootFlex);
 }
 
 static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
+    WindowData* data = (WindowData*)GetWindowLongPtr(hwnd, GWLP_USERDATA);
     switch (msg)
     {
     case LVM_SET_ROOTFLEX:
-        OnSetRootFlex(hwnd, (struct flex_item*)lparam);
-        break;
-    case WM_PAINT:
+        if (data)
         {
-            struct flex_item* rootFlex = (struct flex_item*)GetWindowLongPtr(hwnd, GWLP_USERDATA);
+            data->rootFlex = (struct flex_item*)lparam;
+        }
+        return 0;
+    case LVM_SET_SELECTEDFLEX:
+        if (data)
+        {
+            data->selectedFlex = (struct flex_item*)lparam;
+        }
+        return 0;
+    case WM_PAINT:
+        if (data && data->rootFlex)
+        {
             PAINTSTRUCT ps;
             HDC hdc = BeginPaint(hwnd, &ps);
-            OnPaint(hwnd, hdc, &ps, rootFlex);
+            OnPaint(hwnd, hdc, &ps, data);
             EndPaint(hwnd, &ps);
             return 0;
         }
+    case WM_DESTROY:
+        SetWindowLongPtr(hwnd, GWLP_USERDATA, 0L);
+        return 0;
     }
     return DefWindowProc(hwnd, msg, wparam, lparam);
 }
@@ -106,7 +148,7 @@ HWND LayoutView_Create(HINSTANCE hInstance, HWND hParent, int x, int y, int widt
 {
     HWND hwnd = CreateWindowEx(
         0,
-    CLASSNAME,
+        CLASSNAME,
         "",
         WS_CHILD|WS_VISIBLE|WS_CLIPSIBLINGS,
         x, y,
@@ -116,11 +158,20 @@ HWND LayoutView_Create(HINSTANCE hInstance, HWND hParent, int x, int y, int widt
         hInstance,
         0L);
 
+    WindowData* data = calloc(1, sizeof(WindowData));
+    SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)data);
+
     return hwnd;
 }
 
 void LayoutView_SetRootFlex(HWND hwnd, struct flex_item* rootFlex)
 {
     SendMessage(hwnd, LVM_SET_ROOTFLEX, 0, (LPARAM)rootFlex);
+}
+
+void LayoutView_SetSelectedFlex(HWND hwnd, struct flex_item* flex)
+{
+    SendMessage(hwnd, LVM_SET_SELECTEDFLEX, 0, (LPARAM)flex);
+    InvalidateRect(hwnd, NULL, FALSE);
 }
 

@@ -337,6 +337,34 @@ static void OnCommand(AppState* appState, HWND hwnd, HWND hButton, unsigned butt
     }
 }
 
+static void OnTreeViewSelChanged(AppState* appState,
+                                 HWND hwnd,
+                                 HWND hTreeView,
+                                 TVITEM* old,
+                                 TVITEM* sel)
+{
+    if (sel && (sel->mask & TVIF_PARAM) && sel->lParam)
+    {
+        LayoutView_SetSelectedFlex(appState->hLayoutView, (struct flex_item*)sel->lParam);
+    }
+    else
+    {
+        LayoutView_SetSelectedFlex(appState->hLayoutView, NULL);
+    }
+}
+
+static void OnNotify(AppState* appState, HWND hwnd, NMHDR* nmhdr)
+{
+    switch (nmhdr->code)
+    {
+    case TVN_SELCHANGED:
+        {
+            NMTREEVIEW* nmTreeView = (NMTREEVIEW*)nmhdr;
+            OnTreeViewSelChanged(appState, hwnd, nmhdr->hwndFrom, &nmTreeView->itemOld, &nmTreeView->itemNew);
+        }
+    }
+}
+
 static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
     AppState* appState = (AppState*)GetWindowLongPtr(hwnd, GWLP_USERDATA);
@@ -358,6 +386,13 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lp
         if (appState)
         {
             OnCommand(appState, hwnd, (HWND)lparam, LOWORD(wparam));
+        }
+        return 0;
+    case WM_NOTIFY:
+        if (appState)
+        {
+            NMHDR* nmhdr = (NMHDR*)lparam;
+            OnNotify(appState, hwnd, nmhdr);
         }
         return 0;
     case WM_DESTROY:
