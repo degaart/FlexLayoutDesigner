@@ -1,6 +1,6 @@
 #include "LayoutView.h"
 
-#include "flex/flex.h"
+#include <yoga/Yoga.h>
 #include "Trace.h"
 #include <math.h>
 #include <stdint.h>

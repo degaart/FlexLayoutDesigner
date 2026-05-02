@@ -26,7 +26,6 @@
 #include <stdlib.h>
 #include <windowsx.h>
 #include <stdbool.h>
-#include "flex/flex.h"
 #include "LayoutView.h"
 #include "ScrollView.h"
 #include "GroupBox.h"
@@ -35,6 +34,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <assert.h>
+#include <yoga/Yoga.h>
 
 #define APPNAME "FlexLayoutDesigner"
 
@@ -51,39 +51,39 @@ typedef struct AppState
     HWND hLayoutView;
     HWND hLayoutTree;
     HTREEITEM hRootTreeItem;
-    struct flex_item* rootFlex;
+    YGNodeRef rootFlex;
     int index;
     int blockUpdates;
 } AppState;
 
 typedef union PropertyValue
 {
-    float f;
-    int i;
-    flex_align a;
-    flex_position p;
-    flex_direction d;
-    flex_wrap w;
+    float           f;
+    int             i;
+    YGAlign         a;
+    YGDirection     d;
+    YGWrap          w;
+    YGPositionType  p;
 } PropertyValue;
 
 typedef union PropertyGetter
 {
-    float (*f)(struct flex_item*);
-    int (*i)(struct flex_item*);
-    flex_align (*a)(struct flex_item*);
-    flex_position (*p)(struct flex_item*);
-    flex_direction (*d)(struct flex_item*);
-    flex_wrap (*w)(struct flex_item*);
+    float           (*f)(YGNodeRef);
+    int             (*i)(YGNodeRef);
+    YGAlign         (*a)(YGNodeRef);
+    YGDirection     (*d)(YGNodeRef);
+    YGWrap          (*w)(YGNodeRef);
+    YGPositionType  (*p)(YGNodeRef);
 } PropertyGetter;
 
 typedef union PropertySetter
 {
-    void (*f)(struct flex_item*, float);
-    void (*i)(struct flex_item*, int);
-    void (*a)(struct flex_item*, flex_align);
-    void (*p)(struct flex_item*, flex_position);
-    void (*d)(struct flex_item*, flex_direction);
-    void (*w)(struct flex_item*, flex_wrap);
+    void (*f)(YGNodeRef, float);
+    void (*i)(YGNodeRef, int);
+    void (*a)(YGNodeRef, YGAlign);
+    void (*d)(YGNodeRef, YGDirection);
+    void (*w)(YGNodeRef, YGWrap);
+    void (*p)(YGNodeRef, YGPositionType);
 } PropertySetter;
 
 typedef enum PropertyType
@@ -101,7 +101,6 @@ typedef struct Property
 {
     const char* name;
     PropertyType type;
-    PropertyValue value;
     PropertyGetter getter;
     PropertySetter setter;
     HWND hControl;
@@ -109,31 +108,10 @@ typedef struct Property
 
 static Property gProperties[] =
 {
-    {"width", PROPERTY_TYPE_FLOAT, { .f = NAN }, flex_item_get_width, flex_item_set_width },
-    {"height", PROPERTY_TYPE_FLOAT, { .f = NAN }, flex_item_get_height, flex_item_set_height },
-    {"left", PROPERTY_TYPE_FLOAT, { .f = NAN }, flex_item_get_left, flex_item_set_left },
-    {"right", PROPERTY_TYPE_FLOAT, { .f = NAN }, flex_item_get_right, flex_item_set_right },
-    {"top", PROPERTY_TYPE_FLOAT, { .f = NAN }, flex_item_get_top, flex_item_set_top },
-    {"bottom", PROPERTY_TYPE_FLOAT, { .f = NAN }, flex_item_get_bottom, flex_item_set_bottom },
-    {"padding_left", PROPERTY_TYPE_FLOAT, { .f = 0.0f }, flex_item_get_padding_left, flex_item_set_padding_left },
-    {"padding_right", PROPERTY_TYPE_FLOAT, { .f = 0.0f }, flex_item_get_padding_right, flex_item_set_padding_right },
-    {"padding_top", PROPERTY_TYPE_FLOAT, { .f = 0.0f }, flex_item_get_padding_top, flex_item_set_padding_top },
-    {"padding_bottom", PROPERTY_TYPE_FLOAT, { .f = 0.0f }, flex_item_get_padding_bottom, flex_item_set_padding_bottom },
-    {"margin_left", PROPERTY_TYPE_FLOAT, { .f = 0.0f }, flex_item_get_margin_left, flex_item_set_margin_left },
-    {"margin_right", PROPERTY_TYPE_FLOAT, { .f = 0.0f }, flex_item_get_margin_right, flex_item_set_margin_right },
-    {"margin_top", PROPERTY_TYPE_FLOAT, { .f = 0.0f }, flex_item_get_margin_top, flex_item_set_margin_top },
-    {"margin_bottom", PROPERTY_TYPE_FLOAT, { .f = 0.0f }, flex_item_get_margin_bottom, flex_item_set_margin_bottom },
-    {"justify_content", PROPERTY_TYPE_ALIGN, { .a = FLEX_ALIGN_START }, { .a = flex_item_get_justify_content }, { .a = flex_item_set_justify_content } },
-    {"align_content", PROPERTY_TYPE_ALIGN, { .a = FLEX_ALIGN_STRETCH }, { .a = flex_item_get_align_content }, { .a = flex_item_set_align_content } },
-    {"align_items", PROPERTY_TYPE_ALIGN, { .a = FLEX_ALIGN_STRETCH }, { .a = flex_item_get_align_items }, { .a = flex_item_set_align_items } },
-    {"align_self", PROPERTY_TYPE_ALIGN, { .a = FLEX_ALIGN_AUTO }, { .a = flex_item_get_align_self }, { .a = flex_item_set_align_self } },
-    {"position", PROPERTY_TYPE_POSITION, { .p = FLEX_POSITION_RELATIVE }, { .p = flex_item_get_position }, { .p = flex_item_set_position } },
-    {"direction", PROPERTY_TYPE_DIRECTION, { .d = FLEX_DIRECTION_COLUMN }, { .d = flex_item_get_direction }, { .d = flex_item_set_direction } },
-    {"wrap", PROPERTY_TYPE_WRAP, { .w = FLEX_WRAP_NO_WRAP}, { .w = flex_item_get_wrap }, { .w = flex_item_set_wrap } },
-    {"grow", PROPERTY_TYPE_FLOAT, { .f = 0.0f }, flex_item_get_grow, flex_item_set_grow },
-    {"shrink", PROPERTY_TYPE_FLOAT, { .f = 1.0f }, flex_item_get_shrink, flex_item_set_shrink },
-    {"order", PROPERTY_TYPE_INT, { .i = 0.0f }, { .i = flex_item_get_order }, { .i = flex_item_set_order } },
-    {"basis", PROPERTY_TYPE_FLOAT, { .f = NAN }, flex_item_get_basis, flex_item_set_basis },
+    {"width", PROPERTY_TYPE_FLOAT, YGNodeStyleGetWidth, YGNodeStyleSetWidth },
+    {"height", PROPERTY_TYPE_FLOAT, YGNodeStyleGetHeight, YGNodeStyleSetHeight },
+    {"grow", PROPERTY_TYPE_FLOAT, YGNodeStyleGetFlexGrow, YGNodeStyleSetFlexGrow },
+    {"basis", PROPERTY_TYPE_FLOAT, YGNodeStyleGetFlexBasis, YGNodeStyleSetFlexBasis },
     {NULL},
 };
 
@@ -516,13 +494,14 @@ static void OnCreate(HWND hwnd, AppState* appState)
         appState->hInstance,
         0L);
 
-    appState->rootFlex = flex_item_new();
-    flex_item_set_left(appState->rootFlex, 0.0f);
-    flex_item_set_top(appState->rootFlex, 0.0f);
-    flex_item_set_width(appState->rootFlex, rc.right - rc.left);
-    flex_item_set_height(appState->rootFlex, rc.bottom - rc.top);
-    flex_item_set_managed_ptr(appState->rootFlex, 0);
-    flex_layout(appState->rootFlex);
+    appState->rootFlex = YGNodeNew();
+    YGNodeStyleSetWidth(appState->rootFlex, rc.right - rc.left);
+    YGNodeStyleSetHeight(appState->rootFlex, rc.bottom - rc.top);
+    YGNodeSetContext(appState->rootFlex, NULL);
+    YGNodeCalculateLayout(appState->rootFlex,
+            rc.right - rc.left,
+            rc.bottom - rc.top,
+            YGNodeStyleGetDirection(appState->rootFlex));
 
     appState->hRootTreeItem = InsertTreeItem(appState->hLayoutTree,
             NULL,
@@ -581,9 +560,11 @@ static void OnSize(AppState* appState, HWND hwnd, WORD width, WORD height)
         layoutViewHeight = height - rc.top - 10;
     }
 
-    flex_item_set_width(appState->rootFlex, layoutViewWidth);
-    flex_item_set_height(appState->rootFlex, layoutViewHeight);
-    flex_layout(appState->rootFlex);
+    YGNodeStyleSetWidth(appState->rootFlex, layoutViewWidth);
+    YGNodeStyleSetHeight(appState->rootFlex, layoutViewHeight);
+    YGNodeCalculateLayout(appState->rootFlex,
+            layoutViewWidth, layoutViewHeight,
+            YGNodeStyleGetDirection(appState->rootFlex));
 
     SetWindowPos(appState->hLayoutView,
                  NULL,
