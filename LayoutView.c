@@ -45,7 +45,7 @@ static void PaintFlex(HDC hdc, WindowData* data, struct flex_item* flex)
      */
     int width = flex_item_get_frame_width(flex);
     int height = flex_item_get_frame_height(flex);
-    if (flex == data->rootFlex && flex_item_count(flex) == 0)
+    if (flex == data->rootFlex && width == 0 && height == 0)
     {
         width = flex_item_get_width(flex);
         height = flex_item_get_height(flex);

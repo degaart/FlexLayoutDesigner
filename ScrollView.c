@@ -123,6 +123,10 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lp
     case WM_MOUSEWHEEL:
         OnMouseWheel(hwnd, GET_WHEEL_DELTA_WPARAM(wparam));
         return 0;
+    case WM_COMMAND:
+        return SendMessage(GetParent(hwnd), WM_COMMAND, wparam, lparam);
+    case WM_NOTIFY:
+        return SendMessage(GetParent(hwnd), WM_NOTIFY, wparam, lparam);
     default:
         return DefWindowProc(hwnd, msg, wparam, lparam);
     }

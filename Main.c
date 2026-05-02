@@ -23,6 +23,8 @@
  *
 */
 #include <Windows.h>
+#include <stdlib.h>
+#include <windowsx.h>
 #include <stdbool.h>
 #include "flex/flex.h"
 #include "LayoutView.h"
@@ -31,6 +33,8 @@
 #include "Trace.h"
 #include <CommCtrl.h>
 #include <stdio.h>
+#include <math.h>
+#include <assert.h>
 
 #define APPNAME "FlexLayoutDesigner"
 
@@ -49,7 +53,38 @@ typedef struct AppState
     HTREEITEM hRootTreeItem;
     struct flex_item* rootFlex;
     int index;
+    int blockUpdates;
 } AppState;
+
+typedef union PropertyValue
+{
+    float f;
+    int i;
+    flex_align a;
+    flex_position p;
+    flex_direction d;
+    flex_wrap w;
+} PropertyValue;
+
+typedef union PropertyGetter
+{
+    float (*f)(struct flex_item*);
+    int (*i)(struct flex_item*);
+    flex_align (*a)(struct flex_item*);
+    flex_position (*p)(struct flex_item*);
+    flex_direction (*d)(struct flex_item*);
+    flex_wrap (*w)(struct flex_item*);
+} PropertyGetter;
+
+typedef union PropertySetter
+{
+    void (*f)(struct flex_item*, float);
+    void (*i)(struct flex_item*, int);
+    void (*a)(struct flex_item*, flex_align);
+    void (*p)(struct flex_item*, flex_position);
+    void (*d)(struct flex_item*, flex_direction);
+    void (*w)(struct flex_item*, flex_wrap);
+} PropertySetter;
 
 typedef enum PropertyType
 {
@@ -66,28 +101,50 @@ typedef struct Property
 {
     const char* name;
     PropertyType type;
+    PropertyValue value;
+    PropertyGetter getter;
+    PropertySetter setter;
+    HWND hControl;
 } Property;
+
+static Property gProperties[] =
+{
+    {"width", PROPERTY_TYPE_FLOAT, { .f = NAN }, flex_item_get_width, flex_item_set_width },
+    {"height", PROPERTY_TYPE_FLOAT, { .f = NAN }, flex_item_get_height, flex_item_set_height },
+    {"left", PROPERTY_TYPE_FLOAT, { .f = NAN }, flex_item_get_left, flex_item_set_left },
+    {"right", PROPERTY_TYPE_FLOAT, { .f = NAN }, flex_item_get_right, flex_item_set_right },
+    {"top", PROPERTY_TYPE_FLOAT, { .f = NAN }, flex_item_get_top, flex_item_set_top },
+    {"bottom", PROPERTY_TYPE_FLOAT, { .f = NAN }, flex_item_get_bottom, flex_item_set_bottom },
+    {"padding_left", PROPERTY_TYPE_FLOAT, { .f = 0.0f }, flex_item_get_padding_left, flex_item_set_padding_left },
+    {"padding_right", PROPERTY_TYPE_FLOAT, { .f = 0.0f }, flex_item_get_padding_right, flex_item_set_padding_right },
+    {"padding_top", PROPERTY_TYPE_FLOAT, { .f = 0.0f }, flex_item_get_padding_top, flex_item_set_padding_top },
+    {"padding_bottom", PROPERTY_TYPE_FLOAT, { .f = 0.0f }, flex_item_get_padding_bottom, flex_item_set_padding_bottom },
+    {"margin_left", PROPERTY_TYPE_FLOAT, { .f = 0.0f }, flex_item_get_margin_left, flex_item_set_margin_left },
+    {"margin_right", PROPERTY_TYPE_FLOAT, { .f = 0.0f }, flex_item_get_margin_right, flex_item_set_margin_right },
+    {"margin_top", PROPERTY_TYPE_FLOAT, { .f = 0.0f }, flex_item_get_margin_top, flex_item_set_margin_top },
+    {"margin_bottom", PROPERTY_TYPE_FLOAT, { .f = 0.0f }, flex_item_get_margin_bottom, flex_item_set_margin_bottom },
+    {"justify_content", PROPERTY_TYPE_ALIGN, { .a = FLEX_ALIGN_START }, { .a = flex_item_get_justify_content }, { .a = flex_item_set_justify_content } },
+    {"align_content", PROPERTY_TYPE_ALIGN, { .a = FLEX_ALIGN_STRETCH }, { .a = flex_item_get_align_content }, { .a = flex_item_set_align_content } },
+    {"align_items", PROPERTY_TYPE_ALIGN, { .a = FLEX_ALIGN_STRETCH }, { .a = flex_item_get_align_items }, { .a = flex_item_set_align_items } },
+    {"align_self", PROPERTY_TYPE_ALIGN, { .a = FLEX_ALIGN_AUTO }, { .a = flex_item_get_align_self }, { .a = flex_item_set_align_self } },
+    {"position", PROPERTY_TYPE_POSITION, { .p = FLEX_POSITION_RELATIVE }, { .p = flex_item_get_position }, { .p = flex_item_set_position } },
+    {"direction", PROPERTY_TYPE_DIRECTION, { .d = FLEX_DIRECTION_COLUMN }, { .d = flex_item_get_direction }, { .d = flex_item_set_direction } },
+    {"wrap", PROPERTY_TYPE_WRAP, { .w = FLEX_WRAP_NO_WRAP}, { .w = flex_item_get_wrap }, { .w = flex_item_set_wrap } },
+    {"grow", PROPERTY_TYPE_FLOAT, { .f = 0.0f }, flex_item_get_grow, flex_item_set_grow },
+    {"shrink", PROPERTY_TYPE_FLOAT, { .f = 1.0f }, flex_item_get_shrink, flex_item_set_shrink },
+    {"order", PROPERTY_TYPE_INT, { .i = 0.0f }, { .i = flex_item_get_order }, { .i = flex_item_set_order } },
+    {"basis", PROPERTY_TYPE_FLOAT, { .f = NAN }, flex_item_get_basis, flex_item_set_basis },
+    {NULL},
+};
 
 static void CreateProperties(HINSTANCE hInstance, HWND hParent)
 {
     RECT rc;
     GetClientRect(hParent, &rc);
 
-    Property properties[] =
-    {
-        {"width", PROPERTY_TYPE_FLOAT},
-        {"height", PROPERTY_TYPE_FLOAT},
-        {"justify_content", PROPERTY_TYPE_ALIGN},
-        {"position", PROPERTY_TYPE_POSITION},
-        {"direction", PROPERTY_TYPE_DIRECTION},
-        {"wrap", PROPERTY_TYPE_WRAP},
-        {"order", PROPERTY_TYPE_INT},
-        {NULL, 0},
-    };
-
     int x = 10;
     int y = 10;
-    for (const Property* prop = properties; prop->name; prop++)
+    for (Property* prop = gProperties; prop->name; prop++)
     {
         char label[128];
         snprintf(label, sizeof(label), "%s:", prop->name);
@@ -104,31 +161,53 @@ static void CreateProperties(HINSTANCE hInstance, HWND hParent)
 
         const char* windowClass = NULL;
         unsigned style = 0;
-        int h = 32;
+        int h = 32, hx = 0;
+        char text[64] = {0};
+
         switch (prop->type)
         {
         case PROPERTY_TYPE_FLOAT:
         case PROPERTY_TYPE_INT:
             windowClass = "EDIT";
-            style = WS_BORDER;
+            style = WS_BORDER|ES_RIGHT;
             h = 24;
+
+            switch (prop->type)
+            {
+            case PROPERTY_TYPE_INT:
+                snprintf(text, sizeof(text), "%d", prop->value.i);
+                style |= ES_NUMBER;
+                break;
+            case PROPERTY_TYPE_FLOAT:
+                if (!isnan(prop->value.f))
+                {
+                    snprintf(text, sizeof(text), "%0.f", prop->value.f);
+                }
+                break;
+            default:
+                assert(false);
+                break;
+            }
             break;
         case PROPERTY_TYPE_ALIGN:
         case PROPERTY_TYPE_POSITION:
         case PROPERTY_TYPE_DIRECTION:
         case PROPERTY_TYPE_WRAP:
-        default:
             windowClass = "COMBOBOX";
-            style = CBS_DROPDOWN;
+            style = CBS_DROPDOWNLIST|CBS_HASSTRINGS;
+            hx = 64;
+            break;
+        default:
+            assert(false);
             break;
         }
 
         HWND hwnd = CreateWindow(
             windowClass,
-            "",
+            text,
             WS_CHILD|WS_VISIBLE|WS_CLIPSIBLINGS|style,
             100, y,
-            rc.right - rc.left - 90 - x - 10, h,
+            rc.right - rc.left - 90 - x - 10, h + hx,
             hParent,
             NULL,
             hInstance,
@@ -138,7 +217,232 @@ static void CreateProperties(HINSTANCE hInstance, HWND hParent)
             MessageBox(hParent, "Failed to create control", "Error", MB_ICONERROR | MB_OK);
             ExitProcess(1);
         }
+
+        switch (prop->type)
+        {
+        case PROPERTY_TYPE_ALIGN:
+            ComboBox_AddString(hwnd, "AUTO");
+            ComboBox_AddString(hwnd, "STRETCH");
+            ComboBox_AddString(hwnd, "CENTER");
+            ComboBox_AddString(hwnd, "START");
+            ComboBox_AddString(hwnd, "END");
+            ComboBox_AddString(hwnd, "SPACE_BETWEEN");
+            ComboBox_AddString(hwnd, "SPACE_AROUND");
+            ComboBox_AddString(hwnd, "SPACE_EVENLY");
+            ComboBox_SetCurSel(hwnd, prop->value.a);
+            break;
+        case PROPERTY_TYPE_POSITION:
+            ComboBox_AddString(hwnd, "RELATIVE");
+            ComboBox_AddString(hwnd, "ABSOLUTE");
+            ComboBox_SetCurSel(hwnd, prop->value.p);
+            break;
+        case PROPERTY_TYPE_DIRECTION:
+            ComboBox_AddString(hwnd, "ROW");
+            ComboBox_AddString(hwnd, "ROW_REVERSE");
+            ComboBox_AddString(hwnd, "COLUMN");
+            ComboBox_AddString(hwnd, "COLUMN_REVERSE");
+            ComboBox_SetCurSel(hwnd, prop->value.d);
+            break;
+        case PROPERTY_TYPE_WRAP:
+            ComboBox_AddString(hwnd, "NO_WRAP");
+            ComboBox_AddString(hwnd, "WRAP");
+            ComboBox_AddString(hwnd, "WRAP_REVERSE");
+            ComboBox_SetCurSel(hwnd, prop->value.w);
+            break;
+        default:
+            break;
+        }
+
+        prop->hControl = hwnd;
         y += 32 + 10;
+    }
+}
+
+static void DisplayProperties(AppState* appState, struct flex_item* item)
+{
+    appState->blockUpdates++;
+    for (Property* prop = gProperties; prop->name; prop++)
+    {
+        switch (prop->type)
+        {
+        case PROPERTY_TYPE_FLOAT:
+            if (item)
+            {
+                float val = prop->getter.f(item);
+                if (!isnan(val))
+                {
+                    char text[32];
+                    snprintf(text, sizeof(text), "%0.f", val);
+                    SetWindowText(prop->hControl, text);
+                }
+                else
+                {
+                    SetWindowText(prop->hControl, "");
+                }
+            }
+            else
+            {
+                SetWindowText(prop->hControl, "");
+            }
+            break;
+        case PROPERTY_TYPE_INT:
+            if (item)
+            {
+                int val = prop->getter.i(item);
+                char text[32];
+                snprintf(text, sizeof(text), "%d", val);
+                SetWindowText(prop->hControl, text);
+            }
+            else
+            {
+                SetWindowText(prop->hControl, "");
+            }
+            break;
+        case PROPERTY_TYPE_ALIGN:
+            if (prop)
+            {
+                int idx = prop->getter.a(item);
+                ComboBox_SetCurSel(prop->hControl, idx);
+            }
+            else
+            {
+                ComboBox_SetCurSel(prop->hControl, -1);
+            }
+            break;
+        case PROPERTY_TYPE_POSITION:
+            if (prop)
+            {
+                int idx = prop->getter.p(item);
+                ComboBox_SetCurSel(prop->hControl, idx);
+            }
+            else
+            {
+                ComboBox_SetCurSel(prop->hControl, -1);
+            }
+            break;
+        case PROPERTY_TYPE_DIRECTION:
+            if (prop)
+            {
+                int idx = prop->getter.d(item);
+                ComboBox_SetCurSel(prop->hControl, idx);
+            }
+            else
+            {
+                ComboBox_SetCurSel(prop->hControl, -1);
+            }
+            break;
+        case PROPERTY_TYPE_WRAP:
+            if (prop)
+            {
+                int idx = prop->getter.w(item);
+                ComboBox_SetCurSel(prop->hControl, idx);
+            }
+            else
+            {
+                ComboBox_SetCurSel(prop->hControl, -1);
+            }
+            break;
+        default:
+            assert(false);
+            break;
+        }
+
+    }
+    appState->blockUpdates--;
+}
+
+static void ApplyProperties(struct flex_item* item)
+{
+    for (Property* prop = gProperties; prop->name; prop++)
+    {
+        switch (prop->type)
+        {
+        case PROPERTY_TYPE_FLOAT:
+            {
+                char text[32];
+                GetWindowText(prop->hControl, text, sizeof(text));
+                float val = strtof(text, NULL);
+                if (strlen(text) && !isnan(val))
+                {
+                    prop->setter.f(item, strtof(text, NULL));
+                }
+                else
+                {
+                    prop->setter.f(item, prop->value.f);
+                }
+            }
+            break;
+        case PROPERTY_TYPE_INT:
+            {
+                char text[32];
+                GetWindowText(prop->hControl, text, sizeof(text));
+                if (strlen(text))
+                {
+                    int val = atoi(text);
+                    prop->setter.i(item, val);
+                }
+                else
+                {
+                    prop->setter.i(item, prop->value.i);
+                }
+            }
+            break;
+        case PROPERTY_TYPE_ALIGN:
+            {
+                int sel = ComboBox_GetCurSel(prop->hControl);
+                if (sel != -1)
+                {
+                    prop->setter.a(item, sel);
+                }
+                else
+                {
+                    prop->setter.a(item, prop->value.a);
+                }
+            }
+            break;
+        case PROPERTY_TYPE_POSITION:
+            {
+                int sel = ComboBox_GetCurSel(prop->hControl);
+                if (sel != -1)
+                {
+                    prop->setter.p(item, sel);
+                }
+                else
+                {
+                    prop->setter.p(item, prop->value.p);
+                }
+            }
+            break;
+        case PROPERTY_TYPE_DIRECTION:
+            {
+                int sel = ComboBox_GetCurSel(prop->hControl);
+                if (sel != -1)
+                {
+                    prop->setter.d(item, sel);
+                }
+                else
+                {
+                    prop->setter.d(item, prop->value.d);
+                }
+            }
+            break;
+        case PROPERTY_TYPE_WRAP:
+            {
+                int sel = ComboBox_GetCurSel(prop->hControl);
+                if (sel != -1)
+                {
+                    prop->setter.w(item, sel);
+                }
+                else
+                {
+                    prop->setter.w(item, prop->value.w);
+                }
+            }
+            break;
+        default:
+            assert(false);
+            break;
+        }
     }
 }
 
@@ -257,6 +561,8 @@ static void OnCreate(HWND hwnd, AppState* appState)
 
     appState->hFont = CreateFontIndirect(&ncm.lfMessageFont);
     ApplyFont(hwnd, appState->hFont);
+
+    appState->blockUpdates--;
 }
 
 static void OnSize(AppState* appState, HWND hwnd, WORD width, WORD height)
@@ -312,8 +618,7 @@ static void OnAdd(AppState* appState, HWND hwnd, HWND hButton)
 
     struct flex_item* flexItem = flex_item_new();
     flex_item_set_managed_ptr(flexItem, (void*)(uintptr_t)appState->index);
-    flex_item_set_width(flexItem, 32.0f);
-    flex_item_set_height(flexItem, 32.0f);
+    flex_item_set_basis(flexItem, 32.0f);
     flex_item_add((struct flex_item*)tie.lParam, flexItem);
     flex_layout(appState->rootFlex);
 
@@ -345,11 +650,14 @@ static void OnTreeViewSelChanged(AppState* appState,
 {
     if (sel && (sel->mask & TVIF_PARAM) && sel->lParam)
     {
-        LayoutView_SetSelectedFlex(appState->hLayoutView, (struct flex_item*)sel->lParam);
+        struct flex_item* flex = (struct flex_item*)sel->lParam;
+        LayoutView_SetSelectedFlex(appState->hLayoutView, flex);
+        DisplayProperties(appState, flex);
     }
     else
     {
         LayoutView_SetSelectedFlex(appState->hLayoutView, NULL);
+        DisplayProperties(appState, NULL);
     }
 }
 
@@ -361,6 +669,135 @@ static void OnNotify(AppState* appState, HWND hwnd, NMHDR* nmhdr)
         {
             NMTREEVIEW* nmTreeView = (NMTREEVIEW*)nmhdr;
             OnTreeViewSelChanged(appState, hwnd, nmhdr->hwndFrom, &nmTreeView->itemOld, &nmTreeView->itemNew);
+        }
+    }
+}
+
+static void OnEditControlChange(AppState* appState, HWND hwnd, HWND hControl, int id)
+{
+    if (appState->blockUpdates)
+    {
+        return;
+    }
+
+    HTREEITEM sel = TreeView_GetSelection(appState->hLayoutTree);
+    if (!sel)
+    {
+        return;
+    }
+
+    TVITEMEX tie = {0};
+    tie.mask = TVIF_PARAM;
+    tie.hItem = sel;
+    if (!TreeView_GetItem(appState->hLayoutTree, &tie))
+    {
+        TRACE("TreeView_GetItem failed");
+        return;
+    }
+
+    struct flex_item* item = (struct flex_item*)tie.lParam;
+    for (Property* prop = gProperties; prop->name; prop++)
+    {
+        if (prop->hControl == hControl)
+        {
+            char buffer[32];
+            GetWindowText(hControl, buffer, sizeof(buffer));
+
+            switch (prop->type)
+            {
+            case PROPERTY_TYPE_FLOAT:
+                if (strlen(buffer))
+                {
+                    prop->setter.f(item, atof(buffer));
+                }
+                else
+                {
+                    prop->setter.f(item, prop->value.f);
+                }
+                break;
+            case PROPERTY_TYPE_INT:
+                if (strlen(buffer))
+                {
+                    prop->setter.f(item, atoi(buffer));
+                }
+                else
+                {
+                    prop->setter.i(item, prop->value.i);
+                }
+                break;
+            default:
+                assert(false);
+                break;
+            }
+
+            flex_layout(appState->rootFlex);
+            InvalidateRect(appState->hLayoutView, NULL, TRUE);
+            break;
+        }
+    }
+}
+
+void OnComboBoxSelChange(AppState* appState, HWND hwnd, HWND hCombo, int id)
+{
+    if (appState->blockUpdates)
+    {
+        return;
+    }
+
+    HTREEITEM sel = TreeView_GetSelection(appState->hLayoutTree);
+    if (!sel)
+    {
+        return;
+    }
+
+    TVITEMEX tie = {0};
+    tie.mask = TVIF_PARAM;
+    tie.hItem = sel;
+    if (!TreeView_GetItem(appState->hLayoutTree, &tie))
+    {
+        TRACE("TreeView_GetItem failed");
+        return;
+    }
+
+    struct flex_item* item = (struct flex_item*)tie.lParam;
+    for (Property* prop = gProperties; prop->name; prop++)
+    {
+        if (prop->hControl == hCombo)
+        {
+            int sel = ComboBox_GetCurSel(hCombo);
+            switch (prop->type)
+            {
+            case PROPERTY_TYPE_ALIGN:
+                if (sel != -1)
+                {
+                    prop->setter.a(item, sel);
+                }
+                break;
+            case PROPERTY_TYPE_POSITION:
+                if (sel != -1)
+                {
+                    prop->setter.p(item, sel);
+                }
+                break;
+            case PROPERTY_TYPE_DIRECTION:
+                if (sel != -1)
+                {
+                    prop->setter.d(item, sel);
+                }
+                break;
+            case PROPERTY_TYPE_WRAP:
+                if (sel != -1)
+                {
+                    prop->setter.d(item, sel);
+                }
+                break;
+            default:
+                assert(false);
+                break;
+            }
+            flex_layout(appState->rootFlex);
+            InvalidateRect(appState->hLayoutView, NULL, TRUE);
+            break;
         }
     }
 }
@@ -385,7 +822,18 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lp
     case WM_COMMAND:
         if (appState)
         {
-            OnCommand(appState, hwnd, (HWND)lparam, LOWORD(wparam));
+            switch (HIWORD(wparam))
+            {
+            case EN_CHANGE:
+                OnEditControlChange(appState, hwnd, (HWND)lparam, LOWORD(wparam));
+                break;
+            case CBN_SELCHANGE:
+                OnComboBoxSelChange(appState, hwnd, (HWND)lparam, LOWORD(wparam));
+                break;
+            default:
+                OnCommand(appState, hwnd, (HWND)lparam, LOWORD(wparam));
+                break;
+            }
         }
         return 0;
     case WM_NOTIFY:
@@ -478,6 +926,7 @@ INT WINAPI WinMain(HINSTANCE hInstance,
     AppState appState = {0};
     appState.hInstance = hInstance;
     appState.index = 0;
+    appState.blockUpdates = 1;
 
     if (!InitApplication(hInstance))
     {
