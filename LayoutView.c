@@ -2,6 +2,7 @@
 
 #include "flex/flex.h"
 #include "Trace.h"
+#include <math.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -36,19 +37,19 @@ static void PaintFlex(HDC hdc, WindowData* data, struct flex_item* flex)
     TRACE("Index=%d color=0x%X", index, color);
 
     RECT rc;
-    rc.left = flex_item_get_frame_x(flex);
-    rc.top = flex_item_get_frame_y(flex);
+    rc.left = roundf(flex_item_get_frame_x(flex));
+    rc.top = roundf(flex_item_get_frame_y(flex));
 
     /* 
      * If the flex has 0 children, it is not layouted, so frame_width is always 0
      * We have to hack around that
      */
-    int width = flex_item_get_frame_width(flex);
-    int height = flex_item_get_frame_height(flex);
+    int width = roundf(flex_item_get_frame_width(flex));
+    int height = roundf(flex_item_get_frame_height(flex));
     if (flex == data->rootFlex && width == 0 && height == 0)
     {
-        width = flex_item_get_width(flex);
-        height = flex_item_get_height(flex);
+        width = roundf(flex_item_get_width(flex));
+        height = roundf(flex_item_get_height(flex));
     }
     rc.right = rc.left + width;
     rc.bottom = rc.top + height;
