@@ -521,8 +521,6 @@ static void OnCreate(HWND hwnd, AppState* appState)
     flex_item_set_top(appState->rootFlex, 0.0f);
     flex_item_set_width(appState->rootFlex, rc.right - rc.left);
     flex_item_set_height(appState->rootFlex, rc.bottom - rc.top);
-    flex_item_set_right(appState->rootFlex, rc.right);
-    flex_item_set_bottom(appState->rootFlex, rc.bottom);
     flex_item_set_managed_ptr(appState->rootFlex, 0);
     flex_layout(appState->rootFlex);
 
@@ -571,7 +569,7 @@ static void OnSize(AppState* appState, HWND hwnd, WORD width, WORD height)
     GetWindowRect(appState->hLayoutView, &rc);
     MapWindowPoints(NULL, hwnd, (LPPOINT)&rc, 2);
 
-    int layoutViewWidth = rc.left - rc.right;
+    int layoutViewWidth = rc.right - rc.left;
     if (width > rc.left)
     {
         layoutViewWidth = width - rc.left - 10;
@@ -583,10 +581,8 @@ static void OnSize(AppState* appState, HWND hwnd, WORD width, WORD height)
         layoutViewHeight = height - rc.top - 10;
     }
 
-    flex_item_set_left(appState->rootFlex, 0.0f);
-    flex_item_set_top(appState->rootFlex, 0.0f);
-    flex_item_set_width(appState->rootFlex, rc.right - rc.left);
-    flex_item_set_height(appState->rootFlex, rc.bottom - rc.top);
+    flex_item_set_width(appState->rootFlex, layoutViewWidth);
+    flex_item_set_height(appState->rootFlex, layoutViewHeight);
     flex_layout(appState->rootFlex);
 
     SetWindowPos(appState->hLayoutView,
@@ -594,6 +590,7 @@ static void OnSize(AppState* appState, HWND hwnd, WORD width, WORD height)
                  rc.left, rc.right,
                  layoutViewWidth, layoutViewHeight,
                  SWP_NOMOVE | SWP_NOZORDER);
+    InvalidateRect(appState->hLayoutView, NULL, FALSE);
 }
 
 static void OnAdd(AppState* appState, HWND hwnd, HWND hButton)
