@@ -30,29 +30,34 @@ uint32_t GenerateColor(int index)
     return ((uint32_t)index * 2654435761u) >> 8;
 }
 
-static void PaintFlex(HDC hdc, WindowData* data, struct flex_item* flex)
+static void PaintFlex(HDC hdc, WindowData* data,
+                      float originX, float originY,
+                      struct flex_item* flex)
 {
     int index = (uintptr_t)flex_item_get_managed_ptr(flex);
     uint32_t color = GenerateColor(index) & 0xFFFFFF;
     TRACE("Index=%d color=0x%X", index, color);
 
+    originX += flex_item_get_frame_x(flex);
+    originY += flex_item_get_frame_y(flex);
+
     RECT rc;
-    rc.left = roundf(flex_item_get_frame_x(flex));
-    rc.top = roundf(flex_item_get_frame_y(flex));
+    rc.left = roundf(originX);
+    rc.top = roundf(originY);
 
     /* 
-     * If the flex has 0 children, it is not layouted, so frame_width is always 0
+     * If the flex has 0 children, it is not laid out, so frame_width is always 0
      * We have to hack around that
      */
-    int width = roundf(flex_item_get_frame_width(flex));
-    int height = roundf(flex_item_get_frame_height(flex));
-    if (flex == data->rootFlex && width == 0 && height == 0)
+    float width = flex_item_get_frame_width(flex);
+    float height = flex_item_get_frame_height(flex);
+    if (flex == data->rootFlex && width == 0.0f && height == 0.0f)
     {
-        width = roundf(flex_item_get_width(flex));
-        height = roundf(flex_item_get_height(flex));
+        width = flex_item_get_width(flex);
+        height = flex_item_get_height(flex);
     }
-    rc.right = rc.left + width;
-    rc.bottom = rc.top + height;
+    rc.right = rc.left + roundf(width);
+    rc.bottom = rc.top + roundf(height);
 
     HBRUSH brush = CreateSolidBrush(color);
     if (flex == data->selectedFlex)
@@ -87,13 +92,13 @@ static void PaintFlex(HDC hdc, WindowData* data, struct flex_item* flex)
     unsigned children = flex_item_count(flex);
     for (unsigned i = 0; i < children; i++)
     {
-        PaintFlex(hdc, data, flex_item_child(flex, i));
+        PaintFlex(hdc, data, originX, originY, flex_item_child(flex, i));
     }
 }
 
 static void OnPaint(HWND hwnd, HDC hdc, PAINTSTRUCT* ps, WindowData* data)
 {
-    PaintFlex(hdc, data, data->rootFlex);
+    PaintFlex(hdc, data, 0.0f, 0.0f, data->rootFlex);
 }
 
 static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
