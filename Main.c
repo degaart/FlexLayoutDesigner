@@ -57,6 +57,12 @@ typedef struct AppState
     int blockUpdates;
 } AppState;
 
+typedef struct EdgeValue
+{
+    YGEdge e;
+    YGValue  v;
+} EdgeValue;
+
 typedef union PropertyValue
 {
     float           f;
@@ -65,6 +71,7 @@ typedef union PropertyValue
     YGFlexDirection d;
     YGWrap          w;
     YGPositionType  p;
+    EdgeValue       ev[4];    /* YGEdgeLeft, YGEdgeTop, YGEdgeRight, YGEdgeBottom, in that order */
 } PropertyValue;
 
 typedef union PropertyGetter
@@ -75,6 +82,7 @@ typedef union PropertyGetter
     YGFlexDirection (*d)(YGNodeConstRef);
     YGWrap          (*w)(YGNodeConstRef);
     YGPositionType  (*p)(YGNodeConstRef);
+    YGValue         (*ev)(YGNodeConstRef, YGEdge);
 } PropertyGetter;
 
 typedef union PropertySetter
@@ -90,6 +98,12 @@ typedef union PropertySetter
     void (*d)(YGNodeRef, YGFlexDirection);
     void (*w)(YGNodeRef, YGWrap);
     void (*p)(YGNodeRef, YGPositionType);
+    struct
+    {
+        void (*point)(YGNodeRef, YGEdge, float);
+        void (*percent)(YGNodeRef, YGEdge, float);
+        void (*auto_)(YGNodeRef, YGEdge);
+    } ev;
 } PropertySetter;
 
 typedef enum PropertyType
@@ -101,6 +115,7 @@ typedef enum PropertyType
     PROPERTY_TYPE_POSITION,
     PROPERTY_TYPE_DIRECTION,
     PROPERTY_TYPE_WRAP,
+    PROPERTY_TYPE_EDGE_VALUE,
 } PropertyType;
 
 typedef struct Property
@@ -111,11 +126,13 @@ typedef struct Property
     PropertySetter setter;
     PropertyValue default_;
     HWND hControl;
+    YGNodeRef flex;
 } Property;
 
-#define VALUE_PROP(p) { .v = YGNodeStyleGet ## p }, { .v = YGNodeStyleSet ## p, YGNodeStyleSet ## p ## Percent, YGNodeStyleSet ## p ## Auto } 
+#define VALUE_PROP(p) { .v = YGNodeStyleGet ## p }, { .v = { .point = YGNodeStyleSet ## p, .percent = YGNodeStyleSet ## p ## Percent, .auto_ = YGNodeStyleSet ## p ## Auto } } 
 #define FLOAT_PROP(p) { .f = YGNodeStyleGet ## p }, { .f = YGNodeStyleSet ## p }
 #define DIRECTION_PROP(p) { .d = YGNodeStyleGet ## p }, { .d = YGNodeStyleSet ## p }
+#define EDGE_VALUE_PROP(p) { .ev = YGNodeStyleGet ## p }, { .ev = { .point = YGNodeStyleSet ## p, .percent = YGNodeStyleSet ## p ## Percent, .auto_ = YGNodeStyleSet ## p ## Auto } }
 
 static Property gProperties[] =
 {
@@ -124,6 +141,7 @@ static Property gProperties[] =
     {"grow", PROPERTY_TYPE_FLOAT, FLOAT_PROP(FlexGrow) },
     {"basis", PROPERTY_TYPE_VALUE, VALUE_PROP(FlexBasis) },
     {"flex-direction", PROPERTY_TYPE_DIRECTION, DIRECTION_PROP(FlexDirection) },
+    //{ "margin", PROPERTY_TYPE_EDGE_VALUE, EDGE_VALUE_PROP(Margin) },
     {NULL},
 };
 
@@ -143,6 +161,13 @@ static void InitProperties()
         case PROPERTY_TYPE_DIRECTION:
             prop->default_.d = prop->getter.d(node);
             break;
+        case PROPERTY_TYPE_EDGE_VALUE:
+            for (int edge = YGEdgeLeft; edge <= YGEdgeBottom; edge++)
+            {
+                prop->default_.ev[edge].e = edge;
+                prop->default_.ev[edge].v = prop->getter.ev(node, edge);
+            }
+            break;
         default:
             assert(!"Not implemented yet");
             break;
@@ -151,7 +176,7 @@ static void InitProperties()
     YGNodeFree(node);
 }
 
-static void CreateProperties(HINSTANCE hInstance, HWND hParent)
+static void CreateProperties(AppState* appState, HWND hParent)
 {
     RECT rc;
     GetClientRect(hParent, &rc);
@@ -170,7 +195,7 @@ static void CreateProperties(HINSTANCE hInstance, HWND hParent)
             90, 32,
             hParent,
             NULL,
-            hInstance,
+            appState->hInstance,
             0L);
 
         const char* windowClass = NULL;
@@ -216,7 +241,7 @@ static void CreateProperties(HINSTANCE hInstance, HWND hParent)
             rc.right - rc.left - 90 - x - 10, h + hx,
             hParent,
             NULL,
-            hInstance,
+            appState->hInstance,
             0L);
         if (!hwnd)
         {
@@ -474,7 +499,7 @@ static void OnCreate(HWND hwnd, AppState* appState)
                                                  280, 170);
 
     InitProperties();
-    CreateProperties(appState->hInstance, propertiesContainer);
+    CreateProperties(appState, propertiesContainer);
     ScrollView_UpdateScroll(propertiesContainer);
 
     GroupBox_Create(appState->hInstance,
