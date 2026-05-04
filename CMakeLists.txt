@@ -3,7 +3,8 @@ project(FlexLayoutDesigner)
 
 cmake_policy(SET CMP0091 NEW)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_CXX_STANDARD 20)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
@@ -27,6 +28,6 @@ target_link_libraries(${PROJECT_NAME}
 
 target_include_directories(${PROJECT_NAME} PRIVATE yoga)
 target_compile_definitions(${PROJECT_NAME} PRIVATE WIN32_LEAN_AND_MEAN _CRT_SECURE_NO_WARNINGS)
-target_compile_options(${PROJECT_NAME} PRIVATE /wd4996)
+target_compile_options(${PROJECT_NAME} PRIVATE /wd4996 /wd5105)
 target_compile_options(${PROJECT_NAME} PRIVATE /UUNICODE /U_UNICODE)
 

@@ -28,6 +28,7 @@
 #include <stdbool.h>
 #include "LayoutView.h"
 #include "ScrollView.h"
+#include "valueView.h"
 #include "GroupBox.h"
 #include "Trace.h"
 #include <CommCtrl.h>
@@ -59,7 +60,7 @@ typedef struct AppState
 typedef union PropertyValue
 {
     float           f;
-    int             i;
+    YGValue         v;
     YGAlign         a;
     YGDirection     d;
     YGWrap          w;
@@ -68,18 +69,23 @@ typedef union PropertyValue
 
 typedef union PropertyGetter
 {
-    float           (*f)(YGNodeRef);
-    int             (*i)(YGNodeRef);
-    YGAlign         (*a)(YGNodeRef);
-    YGDirection     (*d)(YGNodeRef);
-    YGWrap          (*w)(YGNodeRef);
-    YGPositionType  (*p)(YGNodeRef);
+    float           (*f)(YGNodeConstRef);
+    YGValue         (*v)(YGNodeConstRef);
+    YGAlign         (*a)(YGNodeConstRef);
+    YGDirection     (*d)(YGNodeConstRef);
+    YGWrap          (*w)(YGNodeConstRef);
+    YGPositionType  (*p)(YGNodeConstRef);
 } PropertyGetter;
 
 typedef union PropertySetter
 {
     void (*f)(YGNodeRef, float);
-    void (*i)(YGNodeRef, int);
+    struct
+    {
+        void (*point)(YGNodeRef, float);
+        void (*percent)(YGNodeRef, float);
+        void (*auto_)(YGNodeRef);
+    } v;
     void (*a)(YGNodeRef, YGAlign);
     void (*d)(YGNodeRef, YGDirection);
     void (*w)(YGNodeRef, YGWrap);
@@ -89,7 +95,7 @@ typedef union PropertySetter
 typedef enum PropertyType
 {
     PROPERTY_TYPE_FLOAT,
-    PROPERTY_TYPE_INT,
+    PROPERTY_TYPE_VALUE,
 
     PROPERTY_TYPE_ALIGN,
     PROPERTY_TYPE_POSITION,
@@ -103,17 +109,42 @@ typedef struct Property
     PropertyType type;
     PropertyGetter getter;
     PropertySetter setter;
+    PropertyValue default_;
     HWND hControl;
 } Property;
 
+#define VALUE_PROP(p) { .v = YGNodeStyleGet ## p }, { .v = YGNodeStyleSet ## p, YGNodeStyleSet ## p ## Percent, YGNodeStyleSet ## p ## Auto } 
+#define FLOAT_PROP(p) { .f = YGNodeStyleGet ## p }, { .f = YGNodeStyleSet ## p }
+
 static Property gProperties[] =
 {
-    {"width", PROPERTY_TYPE_FLOAT, YGNodeStyleGetWidth, YGNodeStyleSetWidth },
-    {"height", PROPERTY_TYPE_FLOAT, YGNodeStyleGetHeight, YGNodeStyleSetHeight },
-    {"grow", PROPERTY_TYPE_FLOAT, YGNodeStyleGetFlexGrow, YGNodeStyleSetFlexGrow },
-    {"basis", PROPERTY_TYPE_FLOAT, YGNodeStyleGetFlexBasis, YGNodeStyleSetFlexBasis },
+    {"width", PROPERTY_TYPE_VALUE, VALUE_PROP(Width) },
+    {"height", PROPERTY_TYPE_VALUE, VALUE_PROP(Height) },
+    {"grow", PROPERTY_TYPE_FLOAT, FLOAT_PROP(FlexGrow) },
+    {"basis", PROPERTY_TYPE_VALUE, VALUE_PROP(FlexBasis) },
     {NULL},
 };
+
+static void InitProperties()
+{
+    YGNodeRef node = YGNodeNew();
+    for (Property* prop = gProperties; prop->name; prop++)
+    {
+        switch (prop->type)
+        {
+        case PROPERTY_TYPE_FLOAT:
+            prop->default_.f = prop->getter.f(node);
+            break;
+        case PROPERTY_TYPE_VALUE:
+            prop->default_.v = prop->getter.v(node);
+            break;
+        default:
+            assert(!"Not implemented yet");
+            break;
+        }
+    }
+    YGNodeFree(node);
+}
 
 static void CreateProperties(HINSTANCE hInstance, HWND hParent)
 {
@@ -145,27 +176,19 @@ static void CreateProperties(HINSTANCE hInstance, HWND hParent)
         switch (prop->type)
         {
         case PROPERTY_TYPE_FLOAT:
-        case PROPERTY_TYPE_INT:
             windowClass = "EDIT";
             style = WS_BORDER|ES_RIGHT;
             h = 24;
-
-            switch (prop->type)
+            if (!isnan(prop->default_.f))
             {
-            case PROPERTY_TYPE_INT:
-                snprintf(text, sizeof(text), "%d", prop->value.i);
-                style |= ES_NUMBER;
-                break;
-            case PROPERTY_TYPE_FLOAT:
-                if (!isnan(prop->value.f))
-                {
-                    snprintf(text, sizeof(text), "%0.f", prop->value.f);
-                }
-                break;
-            default:
-                assert(false);
-                break;
+                snprintf(text, sizeof(text), "%0.f", prop->default_.f);
             }
+            break;
+        case PROPERTY_TYPE_VALUE:
+            /*
+             * label: [  ][   ▼]
+             */
+            windowClass = "ValueView";
             break;
         case PROPERTY_TYPE_ALIGN:
         case PROPERTY_TYPE_POSITION:
@@ -198,6 +221,9 @@ static void CreateProperties(HINSTANCE hInstance, HWND hParent)
 
         switch (prop->type)
         {
+        case PROPERTY_TYPE_VALUE:
+            ValueView_Setvalue(hwnd, prop->default_.v);
+            break;
         case PROPERTY_TYPE_ALIGN:
             ComboBox_AddString(hwnd, "AUTO");
             ComboBox_AddString(hwnd, "STRETCH");
@@ -207,25 +233,25 @@ static void CreateProperties(HINSTANCE hInstance, HWND hParent)
             ComboBox_AddString(hwnd, "SPACE_BETWEEN");
             ComboBox_AddString(hwnd, "SPACE_AROUND");
             ComboBox_AddString(hwnd, "SPACE_EVENLY");
-            ComboBox_SetCurSel(hwnd, prop->value.a);
+            ComboBox_SetCurSel(hwnd, prop->default_.a);
             break;
         case PROPERTY_TYPE_POSITION:
             ComboBox_AddString(hwnd, "RELATIVE");
             ComboBox_AddString(hwnd, "ABSOLUTE");
-            ComboBox_SetCurSel(hwnd, prop->value.p);
+            ComboBox_SetCurSel(hwnd, prop->default_.p);
             break;
         case PROPERTY_TYPE_DIRECTION:
             ComboBox_AddString(hwnd, "ROW");
             ComboBox_AddString(hwnd, "ROW_REVERSE");
             ComboBox_AddString(hwnd, "COLUMN");
             ComboBox_AddString(hwnd, "COLUMN_REVERSE");
-            ComboBox_SetCurSel(hwnd, prop->value.d);
+            ComboBox_SetCurSel(hwnd, prop->default_.d);
             break;
         case PROPERTY_TYPE_WRAP:
             ComboBox_AddString(hwnd, "NO_WRAP");
             ComboBox_AddString(hwnd, "WRAP");
             ComboBox_AddString(hwnd, "WRAP_REVERSE");
-            ComboBox_SetCurSel(hwnd, prop->value.w);
+            ComboBox_SetCurSel(hwnd, prop->default_.w);
             break;
         default:
             break;
@@ -236,7 +262,7 @@ static void CreateProperties(HINSTANCE hInstance, HWND hParent)
     }
 }
 
-static void DisplayProperties(AppState* appState, struct flex_item* item)
+static void DisplayProperties(AppState* appState, YGNodeConstRef item)
 {
     appState->blockUpdates++;
     for (Property* prop = gProperties; prop->name; prop++)
@@ -263,17 +289,15 @@ static void DisplayProperties(AppState* appState, struct flex_item* item)
                 SetWindowText(prop->hControl, "");
             }
             break;
-        case PROPERTY_TYPE_INT:
+        case PROPERTY_TYPE_VALUE:
             if (item)
             {
-                int val = prop->getter.i(item);
-                char text[32];
-                snprintf(text, sizeof(text), "%d", val);
-                SetWindowText(prop->hControl, text);
+                YGValue val = prop->getter.v(item);
+                ValueView_Setvalue(prop->hControl, val);
             }
             else
             {
-                SetWindowText(prop->hControl, "");
+                ValueView_Setvalue(prop->hControl, prop->default_.v);
             }
             break;
         case PROPERTY_TYPE_ALIGN:
@@ -329,101 +353,6 @@ static void DisplayProperties(AppState* appState, struct flex_item* item)
     appState->blockUpdates--;
 }
 
-static void ApplyProperties(struct flex_item* item)
-{
-    for (Property* prop = gProperties; prop->name; prop++)
-    {
-        switch (prop->type)
-        {
-        case PROPERTY_TYPE_FLOAT:
-            {
-                char text[32];
-                GetWindowText(prop->hControl, text, sizeof(text));
-                float val = strtof(text, NULL);
-                if (strlen(text) && !isnan(val))
-                {
-                    prop->setter.f(item, strtof(text, NULL));
-                }
-                else
-                {
-                    prop->setter.f(item, prop->value.f);
-                }
-            }
-            break;
-        case PROPERTY_TYPE_INT:
-            {
-                char text[32];
-                GetWindowText(prop->hControl, text, sizeof(text));
-                if (strlen(text))
-                {
-                    int val = atoi(text);
-                    prop->setter.i(item, val);
-                }
-                else
-                {
-                    prop->setter.i(item, prop->value.i);
-                }
-            }
-            break;
-        case PROPERTY_TYPE_ALIGN:
-            {
-                int sel = ComboBox_GetCurSel(prop->hControl);
-                if (sel != -1)
-                {
-                    prop->setter.a(item, sel);
-                }
-                else
-                {
-                    prop->setter.a(item, prop->value.a);
-                }
-            }
-            break;
-        case PROPERTY_TYPE_POSITION:
-            {
-                int sel = ComboBox_GetCurSel(prop->hControl);
-                if (sel != -1)
-                {
-                    prop->setter.p(item, sel);
-                }
-                else
-                {
-                    prop->setter.p(item, prop->value.p);
-                }
-            }
-            break;
-        case PROPERTY_TYPE_DIRECTION:
-            {
-                int sel = ComboBox_GetCurSel(prop->hControl);
-                if (sel != -1)
-                {
-                    prop->setter.d(item, sel);
-                }
-                else
-                {
-                    prop->setter.d(item, prop->value.d);
-                }
-            }
-            break;
-        case PROPERTY_TYPE_WRAP:
-            {
-                int sel = ComboBox_GetCurSel(prop->hControl);
-                if (sel != -1)
-                {
-                    prop->setter.w(item, sel);
-                }
-                else
-                {
-                    prop->setter.w(item, prop->value.w);
-                }
-            }
-            break;
-        default:
-            assert(false);
-            break;
-        }
-    }
-}
-
 static void ApplyFont(HWND hwnd, HFONT hfont)
 {
     SendMessage(hwnd, WM_SETFONT, (WPARAM)hfont, TRUE);
@@ -450,6 +379,30 @@ static HTREEITEM InsertTreeItem(
     TreeView_Expand(hTree, parent, TVE_EXPAND);
     TreeView_SelectItem(hTree, hItem);
     return hItem;
+}
+
+static YGNodeRef GetSelectedNode(HWND hLayoutTree, HTREEITEM* treeItem)
+{
+    HTREEITEM sel = TreeView_GetSelection(hLayoutTree);
+    if (!sel)
+    {
+        return NULL;
+    }
+
+    TVITEMEX tie = {0};
+    tie.mask = TVIF_PARAM;
+    tie.hItem = sel;
+    if (!TreeView_GetItem(hLayoutTree, &tie))
+    {
+        return NULL;
+    }
+
+    if (treeItem)
+    {
+        *treeItem = sel;
+    }
+
+    return (YGNodeRef)tie.lParam;
 }
 
 static void OnCreate(HWND hwnd, AppState* appState)
@@ -498,10 +451,7 @@ static void OnCreate(HWND hwnd, AppState* appState)
     YGNodeStyleSetWidth(appState->rootFlex, rc.right - rc.left);
     YGNodeStyleSetHeight(appState->rootFlex, rc.bottom - rc.top);
     YGNodeSetContext(appState->rootFlex, NULL);
-    YGNodeCalculateLayout(appState->rootFlex,
-            rc.right - rc.left,
-            rc.bottom - rc.top,
-            YGNodeStyleGetDirection(appState->rootFlex));
+    YGNodeCalculateLayout(appState->rootFlex, YGUndefined, YGUndefined, YGDirectionLTR);
 
     appState->hRootTreeItem = InsertTreeItem(appState->hLayoutTree,
             NULL,
@@ -518,6 +468,7 @@ static void OnCreate(HWND hwnd, AppState* appState)
                                                  10, 32 + 10 + 32 + 10 + 200 + 20 + 20,
                                                  280, 170);
 
+    InitProperties();
     CreateProperties(appState->hInstance, propertiesContainer);
     ScrollView_UpdateScroll(propertiesContainer);
 
@@ -562,9 +513,13 @@ static void OnSize(AppState* appState, HWND hwnd, WORD width, WORD height)
 
     YGNodeStyleSetWidth(appState->rootFlex, layoutViewWidth);
     YGNodeStyleSetHeight(appState->rootFlex, layoutViewHeight);
-    YGNodeCalculateLayout(appState->rootFlex,
-            layoutViewWidth, layoutViewHeight,
-            YGNodeStyleGetDirection(appState->rootFlex));
+    YGNodeCalculateLayout(appState->rootFlex, YGUndefined, YGUndefined, YGDirectionLTR);
+
+    YGNodeRef node = GetSelectedNode(appState->hLayoutTree, NULL);
+    if (node)
+    {
+        DisplayProperties(appState, node);
+    }
 
     SetWindowPos(appState->hLayoutView,
                  NULL,
@@ -576,35 +531,29 @@ static void OnSize(AppState* appState, HWND hwnd, WORD width, WORD height)
 
 static void OnAdd(AppState* appState, HWND hwnd, HWND hButton)
 {
-    HTREEITEM parent = TreeView_GetSelection(appState->hLayoutTree);
-    if (!parent)
+    HTREEITEM treeItem;
+    YGNodeRef parentNode = GetSelectedNode(appState->hLayoutTree, &treeItem);
+    if (!parentNode)
     {
         MessageBox(hwnd, "No parent selected", "Error", MB_OK|MB_ICONERROR);
         return;
     }
 
-    TVITEMEX tie = {0};
-    tie.mask = TVIF_PARAM;
-    tie.hItem = parent;
-    if (!TreeView_GetItem(appState->hLayoutTree, &tie))
-    {
-        TRACE("TreeView_GetItem failed");
-    }
-
     char label[32];
     snprintf(label, sizeof(label), "%d", ++appState->index);
 
-    struct flex_item* flexItem = flex_item_new();
-    flex_item_set_managed_ptr(flexItem, (void*)(uintptr_t)appState->index);
-    flex_item_set_basis(flexItem, 32.0f);
-    flex_item_add((struct flex_item*)tie.lParam, flexItem);
-    flex_layout(appState->rootFlex);
+    YGNodeRef node = YGNodeNew();
+    YGNodeSetContext(node, (void*)appState->index);
+    YGNodeInsertChild(parentNode, node, YGNodeGetChildCount(parentNode));
+
+    RECT rc;
+    GetClientRect(hwnd, &rc);
+    YGNodeCalculateLayout(appState->rootFlex, YGUndefined, YGUndefined, YGDirectionLTR);
 
     InsertTreeItem(appState->hLayoutTree,
-            parent,
+            treeItem,
             label,
-            flexItem);
-
+            node);
     InvalidateRect(appState->hLayoutView, NULL, FALSE);
 }
 
@@ -628,14 +577,60 @@ static void OnTreeViewSelChanged(AppState* appState,
 {
     if (sel && (sel->mask & TVIF_PARAM) && sel->lParam)
     {
-        struct flex_item* flex = (struct flex_item*)sel->lParam;
-        LayoutView_SetSelectedFlex(appState->hLayoutView, flex);
-        DisplayProperties(appState, flex);
+        YGNodeRef node = (YGNodeRef)sel->lParam;
+        LayoutView_SetSelectedFlex(appState->hLayoutView, node);
+        DisplayProperties(appState, node);
     }
     else
     {
         LayoutView_SetSelectedFlex(appState->hLayoutView, NULL);
         DisplayProperties(appState, NULL);
+    }
+}
+
+static void OnValueViewChanged(AppState* appState, HWND hwnd, HWND hControl, YGValue newValue)
+{
+    if (appState->blockUpdates)
+    {
+        return;
+    }
+
+    YGNodeRef node = GetSelectedNode(appState->hLayoutTree, NULL);
+    if (!node)
+    {
+        return;
+    }
+
+    for (Property* prop = gProperties; prop->name; prop++)
+    {
+        if (prop->hControl == hControl)
+        {
+            assert(prop->type == PROPERTY_TYPE_VALUE);
+            switch (newValue.unit)
+            {
+            case YGUnitUndefined:
+                prop->setter.v.point(node, NAN);
+                break;
+            case YGUnitPoint:
+                prop->setter.v.point(node, newValue.value);
+                break;
+            case YGUnitPercent:
+                prop->setter.v.percent(node, newValue.value);
+                break;
+            case YGUnitAuto:
+                prop->setter.v.auto_(node);
+                break;
+            default:
+                assert(!"Invalid code path");
+                break;
+            }
+
+            RECT rc;
+            GetClientRect(hwnd, &rc);
+            YGNodeCalculateLayout(appState->rootFlex, YGUndefined, YGUndefined, YGDirectionLTR);
+            InvalidateRect(appState->hLayoutView, NULL, TRUE);
+            break;
+        }
     }
 }
 
@@ -648,6 +643,13 @@ static void OnNotify(AppState* appState, HWND hwnd, NMHDR* nmhdr)
             NMTREEVIEW* nmTreeView = (NMTREEVIEW*)nmhdr;
             OnTreeViewSelChanged(appState, hwnd, nmhdr->hwndFrom, &nmTreeView->itemOld, &nmTreeView->itemNew);
         }
+        break;
+    case VVN_CHANGED:
+        {
+            NM_VALUEVIEW* nmValueView = (NM_VALUEVIEW*)nmhdr;
+            OnValueViewChanged(appState, hwnd, nmValueView->hdr.hwndFrom, nmValueView->newValue);
+        }
+        break;
     }
 }
 
@@ -658,22 +660,12 @@ static void OnEditControlChange(AppState* appState, HWND hwnd, HWND hControl, in
         return;
     }
 
-    HTREEITEM sel = TreeView_GetSelection(appState->hLayoutTree);
-    if (!sel)
+    YGNodeRef node = GetSelectedNode(appState->hLayoutTree, NULL);
+    if (!node)
     {
         return;
     }
 
-    TVITEMEX tie = {0};
-    tie.mask = TVIF_PARAM;
-    tie.hItem = sel;
-    if (!TreeView_GetItem(appState->hLayoutTree, &tie))
-    {
-        TRACE("TreeView_GetItem failed");
-        return;
-    }
-
-    struct flex_item* item = (struct flex_item*)tie.lParam;
     for (Property* prop = gProperties; prop->name; prop++)
     {
         if (prop->hControl == hControl)
@@ -686,21 +678,11 @@ static void OnEditControlChange(AppState* appState, HWND hwnd, HWND hControl, in
             case PROPERTY_TYPE_FLOAT:
                 if (strlen(buffer))
                 {
-                    prop->setter.f(item, atof(buffer));
+                    prop->setter.f(node, strtof(buffer, NULL));
                 }
                 else
                 {
-                    prop->setter.f(item, prop->value.f);
-                }
-                break;
-            case PROPERTY_TYPE_INT:
-                if (strlen(buffer))
-                {
-                    prop->setter.f(item, atoi(buffer));
-                }
-                else
-                {
-                    prop->setter.i(item, prop->value.i);
+                    prop->setter.f(node, prop->default_.f);
                 }
                 break;
             default:
@@ -708,7 +690,9 @@ static void OnEditControlChange(AppState* appState, HWND hwnd, HWND hControl, in
                 break;
             }
 
-            flex_layout(appState->rootFlex);
+            RECT rc;
+            GetClientRect(hwnd, &rc);
+            YGNodeCalculateLayout(appState->rootFlex, YGUndefined, YGUndefined, YGDirectionLTR);
             InvalidateRect(appState->hLayoutView, NULL, TRUE);
             break;
         }
@@ -722,22 +706,12 @@ void OnComboBoxSelChange(AppState* appState, HWND hwnd, HWND hCombo, int id)
         return;
     }
 
-    HTREEITEM sel = TreeView_GetSelection(appState->hLayoutTree);
-    if (!sel)
+    YGNodeRef item = GetSelectedNode(appState->hLayoutTree, NULL);
+    if (!item)
     {
         return;
     }
 
-    TVITEMEX tie = {0};
-    tie.mask = TVIF_PARAM;
-    tie.hItem = sel;
-    if (!TreeView_GetItem(appState->hLayoutTree, &tie))
-    {
-        TRACE("TreeView_GetItem failed");
-        return;
-    }
-
-    struct flex_item* item = (struct flex_item*)tie.lParam;
     for (Property* prop = gProperties; prop->name; prop++)
     {
         if (prop->hControl == hCombo)
@@ -773,7 +747,9 @@ void OnComboBoxSelChange(AppState* appState, HWND hwnd, HWND hCombo, int id)
                 assert(false);
                 break;
             }
-            flex_layout(appState->rootFlex);
+            RECT rc;
+            GetClientRect(hwnd, &rc);
+            YGNodeCalculateLayout(appState->rootFlex, YGUndefined, YGUndefined, YGDirectionLTR);
             InvalidateRect(appState->hLayoutView, NULL, TRUE);
             break;
         }
@@ -862,6 +838,10 @@ static bool InitApplication(HINSTANCE hInstance)
         return false;
     }
 
+    if (!ValueView_Init(hInstance))
+    {
+        return false;
+    }
     return true;
 }
 
@@ -896,11 +876,52 @@ static bool InitInstance(HINSTANCE hInstance, INT nShowCmd, AppState* appState)
     return true;
 }
 
+static void UnitTest()
+{
+    YGNodeRef root = YGNodeNew();
+    YGNodeStyleSetWidth(root, 320.f);
+    YGNodeStyleSetHeight(root, 240.0f);
+
+    YGNodeRef node0 = YGNodeNew();
+    YGNodeStyleSetWidth(node0, 32.0f);
+    YGNodeStyleSetHeight(node0, 32.0f);
+    YGNodeInsertChild(root, node0, 0);
+
+    YGNodeRef node1 = YGNodeNew();
+    YGNodeStyleSetWidth(node1, 32.0f);
+    YGNodeStyleSetHeight(node1, 32.0f);
+    YGNodeInsertChild(root, node1, 1);
+
+    YGNodeCalculateLayout(root, YGUndefined, YGUndefined, YGDirectionLTR);
+
+    TRACE("root top: %0.f left: %0.f width: %0.f height: %0.f",
+        YGNodeLayoutGetTop(root),
+        YGNodeLayoutGetLeft(root),
+        YGNodeLayoutGetWidth(root),
+        YGNodeLayoutGetHeight(root));
+
+    TRACE("node0 top: %0.f left: %0.f width: %0.f height: %0.f",
+        YGNodeLayoutGetTop(node0),
+        YGNodeLayoutGetLeft(node0),
+        YGNodeLayoutGetWidth(node0),
+        YGNodeLayoutGetHeight(node0));
+
+    TRACE("node1 top: %0.f left: %0.f width: %0.f height: %0.f",
+        YGNodeLayoutGetTop(node1),
+        YGNodeLayoutGetLeft(node1),
+        YGNodeLayoutGetWidth(node1),
+        YGNodeLayoutGetHeight(node1));
+
+    YGNodeFreeRecursive(root);
+}
+
 INT WINAPI WinMain(HINSTANCE hInstance,
                    HINSTANCE hPrevInstance,
                    LPSTR lpCmdLine,
                    INT nShowCmd)
 {
+    UnitTest();
+
     AppState appState = {0};
     appState.hInstance = hInstance;
     appState.index = 0;
