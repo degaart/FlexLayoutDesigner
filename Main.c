@@ -62,7 +62,7 @@ typedef union PropertyValue
     float           f;
     YGValue         v;
     YGAlign         a;
-    YGDirection     d;
+    YGFlexDirection d;
     YGWrap          w;
     YGPositionType  p;
 } PropertyValue;
@@ -72,7 +72,7 @@ typedef union PropertyGetter
     float           (*f)(YGNodeConstRef);
     YGValue         (*v)(YGNodeConstRef);
     YGAlign         (*a)(YGNodeConstRef);
-    YGDirection     (*d)(YGNodeConstRef);
+    YGFlexDirection (*d)(YGNodeConstRef);
     YGWrap          (*w)(YGNodeConstRef);
     YGPositionType  (*p)(YGNodeConstRef);
 } PropertyGetter;
@@ -87,7 +87,7 @@ typedef union PropertySetter
         void (*auto_)(YGNodeRef);
     } v;
     void (*a)(YGNodeRef, YGAlign);
-    void (*d)(YGNodeRef, YGDirection);
+    void (*d)(YGNodeRef, YGFlexDirection);
     void (*w)(YGNodeRef, YGWrap);
     void (*p)(YGNodeRef, YGPositionType);
 } PropertySetter;
@@ -115,6 +115,7 @@ typedef struct Property
 
 #define VALUE_PROP(p) { .v = YGNodeStyleGet ## p }, { .v = YGNodeStyleSet ## p, YGNodeStyleSet ## p ## Percent, YGNodeStyleSet ## p ## Auto } 
 #define FLOAT_PROP(p) { .f = YGNodeStyleGet ## p }, { .f = YGNodeStyleSet ## p }
+#define DIRECTION_PROP(p) { .d = YGNodeStyleGet ## p }, { .d = YGNodeStyleSet ## p }
 
 static Property gProperties[] =
 {
@@ -122,6 +123,7 @@ static Property gProperties[] =
     {"height", PROPERTY_TYPE_VALUE, VALUE_PROP(Height) },
     {"grow", PROPERTY_TYPE_FLOAT, FLOAT_PROP(FlexGrow) },
     {"basis", PROPERTY_TYPE_VALUE, VALUE_PROP(FlexBasis) },
+    {"flex-direction", PROPERTY_TYPE_DIRECTION, DIRECTION_PROP(FlexDirection) },
     {NULL},
 };
 
@@ -137,6 +139,9 @@ static void InitProperties()
             break;
         case PROPERTY_TYPE_VALUE:
             prop->default_.v = prop->getter.v(node);
+            break;
+        case PROPERTY_TYPE_DIRECTION:
+            prop->default_.d = prop->getter.d(node);
             break;
         default:
             assert(!"Not implemented yet");
@@ -241,10 +246,10 @@ static void CreateProperties(HINSTANCE hInstance, HWND hParent)
             ComboBox_SetCurSel(hwnd, prop->default_.p);
             break;
         case PROPERTY_TYPE_DIRECTION:
-            ComboBox_AddString(hwnd, "ROW");
-            ComboBox_AddString(hwnd, "ROW_REVERSE");
-            ComboBox_AddString(hwnd, "COLUMN");
-            ComboBox_AddString(hwnd, "COLUMN_REVERSE");
+            ComboBox_AddString(hwnd, "Column");
+            ComboBox_AddString(hwnd, "ColumnReverse");
+            ComboBox_AddString(hwnd, "Row");
+            ComboBox_AddString(hwnd, "RowReverse");
             ComboBox_SetCurSel(hwnd, prop->default_.d);
             break;
         case PROPERTY_TYPE_WRAP:
