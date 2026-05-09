@@ -150,7 +150,8 @@ bool ScrollView_Init(HINSTANCE hInstance)
 
 HWND ScrollView_Create(HINSTANCE hInstance, HWND hParent, int x, int y, int w, int h)
 {
-    return CreateWindow(
+    return CreateWindowEx(
+        0,
         CLASSNAME,
         "",
         WS_CHILD|WS_CLIPSIBLINGS|WS_CLIPCHILDREN|WS_VISIBLE|WS_VSCROLL,

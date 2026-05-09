@@ -202,7 +202,9 @@ static void OnSetValue(HWND hwnd, const YGValue* value)
 
 static void OnSize(ControlState* state, HWND hwnd, WORD width, WORD height)
 {
-    Layout(state, width, height);
+    RECT rc;
+    GetClientRect(hwnd, &rc);
+    Layout(state, rc.right - rc.left, rc.bottom - rc.top);
 }
 
 static void OnDestroy(ControlState* state, HWND hwnd)

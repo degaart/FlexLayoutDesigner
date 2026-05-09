@@ -55,6 +55,7 @@ typedef struct AppState
     YGNodeRef rootFlex;
     int index;
     int blockUpdates;
+    YGNodeRef propsFlex;
 } AppState;
 
 typedef struct EdgeValue
@@ -125,8 +126,13 @@ typedef struct Property
     PropertyGetter getter;
     PropertySetter setter;
     PropertyValue default_;
+    HWND hLabel;
     HWND hControl;
     YGNodeRef flex;
+    YGNodeRef labelFlex;
+    YGNodeRef controlFlex;
+    float controlHeight;
+    float layoutHeight;
 } Property;
 
 #define VALUE_PROP(p) { .v = YGNodeStyleGet ## p }, { .v = { .point = YGNodeStyleSet ## p, .percent = YGNodeStyleSet ## p ## Percent, .auto_ = YGNodeStyleSet ## p ## Auto } } 
@@ -144,6 +150,12 @@ static Property gProperties[] =
     //{ "margin", PROPERTY_TYPE_EDGE_VALUE, EDGE_VALUE_PROP(Margin) },
     {NULL},
 };
+
+#define DUMP_FLEX(flex) \
+    TRACE("%-12s: %3d %3d %3d %3d", \
+        #flex, \
+        (int)roundf(YGNodeLayoutGetLeft(flex)), (int)roundf(YGNodeLayoutGetTop(flex)), \
+        (int)roundf(YGNodeLayoutGetWidth(flex)), (int)roundf(YGNodeLayoutGetHeight(flex)))
 
 static void InitProperties()
 {
@@ -176,39 +188,80 @@ static void InitProperties()
     YGNodeFree(node);
 }
 
+static void Layout(YGNodeRef root, float originX, float originY)
+{
+    int childCount = YGNodeGetChildCount(root);
+    for (int i = 0; i < childCount; i++)
+    {
+        YGNodeRef node = YGNodeGetChild(root, i);
+        HWND hwnd = YGNodeGetContext(node);
+
+        float left = YGNodeLayoutGetLeft(node) + originX;
+        float top = YGNodeLayoutGetTop(node) + originY;
+        if (hwnd)
+        {
+            SetWindowPos(hwnd, NULL,
+                roundf(left), roundf(top),
+                roundf(YGNodeLayoutGetWidth(node)), roundf(YGNodeLayoutGetHeight(node)),
+                SWP_NOZORDER);
+        }
+
+        Layout(node, left, top);
+    }
+}
+
 static void CreateProperties(AppState* appState, HWND hParent)
 {
     RECT rc;
     GetClientRect(hParent, &rc);
 
-    int x = 10;
-    int y = 10;
+    appState->propsFlex = YGNodeNew();
+    YGNodeStyleSetWidth(appState->propsFlex, rc.right - rc.left);
+    YGNodeStyleSetFlexDirection(appState->propsFlex, YGFlexDirectionColumn);
+    YGNodeStyleSetMargin(appState->propsFlex, YGEdgeTop, 5);
+    YGNodeStyleSetMargin(appState->propsFlex, YGEdgeLeft, 5);
+    YGNodeStyleSetMargin(appState->propsFlex, YGEdgeRight, 5);
+    YGNodeStyleSetMargin(appState->propsFlex, YGEdgeBottom, 5);
+
     for (Property* prop = gProperties; prop->name; prop++)
     {
+        prop->flex = YGNodeNew();
+        YGNodeStyleSetFlexDirection(prop->flex, YGFlexDirectionRow);
+        YGNodeInsertChild(appState->propsFlex, prop->flex, YGNodeGetChildCount(appState->propsFlex));
+
+        prop->labelFlex = YGNodeNew();
+        YGNodeStyleSetWidth(prop->labelFlex, 90.0f);
+        YGNodeInsertChild(prop->flex, prop->labelFlex, 0);
+
+        prop->controlFlex = YGNodeNew();
+        YGNodeStyleSetFlexGrow(prop->controlFlex, 1.0f);
+        YGNodeStyleSetHeight(prop->controlFlex, 24.0f);
+        YGNodeInsertChild(prop->flex, prop->controlFlex, 1);
+
         char label[128];
         snprintf(label, sizeof(label), "%s:", prop->name);
-        HWND hLabel = CreateWindow(
+        prop->hLabel = CreateWindow(
             "STATIC",
             label,
             WS_CHILD|WS_CLIPSIBLINGS|WS_VISIBLE,
-            x, y,
-            90, 32,
+            0, 0,
+            32, 32,
             hParent,
             NULL,
             appState->hInstance,
             0L);
+        YGNodeSetContext(prop->labelFlex, prop->hLabel);
 
         const char* windowClass = NULL;
         unsigned style = 0;
-        int h = 32, hx = 0;
         char text[64] = {0};
 
+        prop->controlHeight = NAN;
         switch (prop->type)
         {
         case PROPERTY_TYPE_FLOAT:
             windowClass = "EDIT";
             style = WS_BORDER|ES_RIGHT;
-            h = 24;
             if (!isnan(prop->default_.f))
             {
                 snprintf(text, sizeof(text), "%0.f", prop->default_.f);
@@ -226,70 +279,73 @@ static void CreateProperties(AppState* appState, HWND hParent)
         case PROPERTY_TYPE_WRAP:
             windowClass = "COMBOBOX";
             style = CBS_DROPDOWNLIST|CBS_HASSTRINGS;
-            hx = 64;
+            prop->controlHeight = 128.0f;
             break;
         default:
             assert(false);
             break;
         }
 
-        HWND hwnd = CreateWindow(
+        prop->hControl = CreateWindow(
             windowClass,
             text,
             WS_CHILD|WS_VISIBLE|WS_CLIPSIBLINGS|style,
-            100, y,
-            rc.right - rc.left - 90 - x - 10, h + hx,
+            32, 0,
+            32, 32,
             hParent,
             NULL,
             appState->hInstance,
             0L);
-        if (!hwnd)
+        if (!prop->hControl)
         {
             MessageBox(hParent, "Failed to create control", "Error", MB_ICONERROR | MB_OK);
             ExitProcess(1);
         }
+        YGNodeSetContext(prop->controlFlex, prop->hControl);
 
         switch (prop->type)
         {
         case PROPERTY_TYPE_VALUE:
-            ValueView_Setvalue(hwnd, prop->default_.v);
+            ValueView_Setvalue(prop->hControl, prop->default_.v);
             break;
         case PROPERTY_TYPE_ALIGN:
-            ComboBox_AddString(hwnd, "AUTO");
-            ComboBox_AddString(hwnd, "STRETCH");
-            ComboBox_AddString(hwnd, "CENTER");
-            ComboBox_AddString(hwnd, "START");
-            ComboBox_AddString(hwnd, "END");
-            ComboBox_AddString(hwnd, "SPACE_BETWEEN");
-            ComboBox_AddString(hwnd, "SPACE_AROUND");
-            ComboBox_AddString(hwnd, "SPACE_EVENLY");
-            ComboBox_SetCurSel(hwnd, prop->default_.a);
+            ComboBox_AddString(prop->hControl, "AUTO");
+            ComboBox_AddString(prop->hControl, "STRETCH");
+            ComboBox_AddString(prop->hControl, "CENTER");
+            ComboBox_AddString(prop->hControl, "START");
+            ComboBox_AddString(prop->hControl, "END");
+            ComboBox_AddString(prop->hControl, "SPACE_BETWEEN");
+            ComboBox_AddString(prop->hControl, "SPACE_AROUND");
+            ComboBox_AddString(prop->hControl, "SPACE_EVENLY");
+            ComboBox_SetCurSel(prop->hControl, prop->default_.a);
             break;
         case PROPERTY_TYPE_POSITION:
-            ComboBox_AddString(hwnd, "RELATIVE");
-            ComboBox_AddString(hwnd, "ABSOLUTE");
-            ComboBox_SetCurSel(hwnd, prop->default_.p);
+            ComboBox_AddString(prop->hControl, "RELATIVE");
+            ComboBox_AddString(prop->hControl, "ABSOLUTE");
+            ComboBox_SetCurSel(prop->hControl, prop->default_.p);
             break;
         case PROPERTY_TYPE_DIRECTION:
-            ComboBox_AddString(hwnd, "Column");
-            ComboBox_AddString(hwnd, "ColumnReverse");
-            ComboBox_AddString(hwnd, "Row");
-            ComboBox_AddString(hwnd, "RowReverse");
-            ComboBox_SetCurSel(hwnd, prop->default_.d);
+            ComboBox_AddString(prop->hControl, "Column");
+            ComboBox_AddString(prop->hControl, "ColumnReverse");
+            ComboBox_AddString(prop->hControl, "Row");
+            ComboBox_AddString(prop->hControl, "RowReverse");
+            ComboBox_SetCurSel(prop->hControl, prop->default_.d);
             break;
         case PROPERTY_TYPE_WRAP:
-            ComboBox_AddString(hwnd, "NO_WRAP");
-            ComboBox_AddString(hwnd, "WRAP");
-            ComboBox_AddString(hwnd, "WRAP_REVERSE");
-            ComboBox_SetCurSel(hwnd, prop->default_.w);
+            ComboBox_AddString(prop->hControl, "NO_WRAP");
+            ComboBox_AddString(prop->hControl, "WRAP");
+            ComboBox_AddString(prop->hControl, "WRAP_REVERSE");
+            ComboBox_SetCurSel(prop->hControl, prop->default_.w);
             break;
         default:
             break;
         }
-
-        prop->hControl = hwnd;
-        y += 32 + 10;
     }
+
+    int y = 0;
+    YGNodeCalculateLayout(appState->propsFlex, YGUndefined, YGUndefined, YGDirectionLTR);
+
+    Layout(appState->propsFlex, 0.0f, 0.0f);
 }
 
 static void DisplayProperties(AppState* appState, YGNodeConstRef item)
@@ -906,43 +962,56 @@ static bool InitInstance(HINSTANCE hInstance, INT nShowCmd, AppState* appState)
     return true;
 }
 
-static void UnitTest()
+static void UnitTest(void)
 {
-    YGNodeRef root = YGNodeNew();
-    YGNodeStyleSetWidth(root, 320.f);
-    YGNodeStyleSetHeight(root, 240.0f);
+    AppState state;
 
-    YGNodeRef node0 = YGNodeNew();
-    YGNodeStyleSetWidth(node0, 32.0f);
-    YGNodeStyleSetHeight(node0, 32.0f);
-    YGNodeInsertChild(root, node0, 0);
+    state.propsFlex = YGNodeNew();
+    YGNodeStyleSetWidth(state.propsFlex, 300.0f);
+    YGNodeStyleSetFlexDirection(state.propsFlex, YGFlexDirectionColumn);
+    YGNodeStyleSetMargin(state.propsFlex, YGEdgeTop, 5);
+    YGNodeStyleSetMargin(state.propsFlex, YGEdgeLeft, 5);
+    YGNodeStyleSetMargin(state.propsFlex, YGEdgeRight, 5);
+    YGNodeStyleSetMargin(state.propsFlex, YGEdgeBottom, 5);
 
-    YGNodeRef node1 = YGNodeNew();
-    YGNodeStyleSetWidth(node1, 32.0f);
-    YGNodeStyleSetHeight(node1, 32.0f);
-    YGNodeInsertChild(root, node1, 1);
+    YGNodeRef prop[2];
+    YGNodeRef label[2];
+    YGNodeRef control[2];
 
-    YGNodeCalculateLayout(root, YGUndefined, YGUndefined, YGDirectionLTR);
+    prop[0] = YGNodeNew();
+    YGNodeStyleSetFlexDirection(prop[0], YGFlexDirectionRow);
+    YGNodeInsertChild(state.propsFlex, prop[0], YGNodeGetChildCount(state.propsFlex));
 
-    TRACE("root top: %0.f left: %0.f width: %0.f height: %0.f",
-        YGNodeLayoutGetTop(root),
-        YGNodeLayoutGetLeft(root),
-        YGNodeLayoutGetWidth(root),
-        YGNodeLayoutGetHeight(root));
+    label[0] = YGNodeNew();
+    YGNodeStyleSetWidth(label[0], 90.0f);
+    YGNodeInsertChild(prop[0], label[0], YGNodeGetChildCount(prop[0]));
 
-    TRACE("node0 top: %0.f left: %0.f width: %0.f height: %0.f",
-        YGNodeLayoutGetTop(node0),
-        YGNodeLayoutGetLeft(node0),
-        YGNodeLayoutGetWidth(node0),
-        YGNodeLayoutGetHeight(node0));
+    control[0] = YGNodeNew();
+    YGNodeStyleSetFlexGrow(control[0], 1.0f);
+    YGNodeStyleSetHeight(control[0], 24.0f);
+    YGNodeInsertChild(prop[0], control[0], YGNodeGetChildCount(prop[0]));
 
-    TRACE("node1 top: %0.f left: %0.f width: %0.f height: %0.f",
-        YGNodeLayoutGetTop(node1),
-        YGNodeLayoutGetLeft(node1),
-        YGNodeLayoutGetWidth(node1),
-        YGNodeLayoutGetHeight(node1));
+    prop[1] = YGNodeNew();
+    YGNodeStyleSetFlexDirection(prop[1], YGFlexDirectionRow);
+    YGNodeInsertChild(state.propsFlex, prop[1], YGNodeGetChildCount(state.propsFlex));
 
-    YGNodeFreeRecursive(root);
+    YGNodeRef label2 = YGNodeNew();
+    YGNodeStyleSetWidth(label2, 90.0f);
+    YGNodeInsertChild(prop[1], label2, YGNodeGetChildCount(prop[1]));
+
+    YGNodeRef control2 = YGNodeNew();
+    YGNodeStyleSetFlexGrow(control2, 1.0f);
+    YGNodeStyleSetHeight(control2, 24.0f);
+    YGNodeInsertChild(prop[1], control2, YGNodeGetChildCount(prop[1]));
+
+    YGNodeCalculateLayout(state.propsFlex, YGUndefined, YGUndefined, YGDirectionLTR);
+
+    DUMP_FLEX(prop[0]);
+    DUMP_FLEX(label[0]);
+    DUMP_FLEX(control[0]);
+    DUMP_FLEX(prop[1]);
+    DUMP_FLEX(label2);
+    DUMP_FLEX(control2);
 }
 
 INT WINAPI WinMain(HINSTANCE hInstance,
