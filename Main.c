@@ -200,9 +200,18 @@ static void Layout(YGNodeRef root, float originX, float originY)
         float top = YGNodeLayoutGetTop(node) + originY;
         if (hwnd)
         {
+            char className[128];
+            GetClassName(hwnd, className, sizeof(className));
+
+            float height = YGNodeLayoutGetHeight(node);
+            if (!strcmp(className, "ComboBox"))
+            {
+                height = 128.0f;
+            }
+
             SetWindowPos(hwnd, NULL,
                 roundf(left), roundf(top),
-                roundf(YGNodeLayoutGetWidth(node)), roundf(YGNodeLayoutGetHeight(node)),
+                roundf(YGNodeLayoutGetWidth(node)), roundf(height),
                 SWP_NOZORDER);
         }
 
