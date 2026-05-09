@@ -24,12 +24,50 @@ enum UnitIDs
     UNIT_AUTO
 };
 
+typedef struct ControlState
+{
+    YGNodeRef rootFlex;
+    YGNodeRef labelFlex;
+    YGNodeRef comboFlex;
+    HWND hLabel;
+    HWND hCombo;
+} ControlState;
+
+static void Layout(ControlState* state, int width, int height)
+{
+    YGNodeStyleSetWidth(state->rootFlex, width);
+    YGNodeStyleSetHeight(state->rootFlex, height);
+    YGNodeCalculateLayout(state->rootFlex, YGUndefined, YGUndefined, YGDirectionLTR);
+
+    int x = roundf(YGNodeLayoutGetLeft(state->labelFlex));
+    int y = roundf(YGNodeLayoutGetTop(state->labelFlex));
+    int w = roundf(YGNodeLayoutGetWidth(state->labelFlex));
+    int h = roundf(YGNodeLayoutGetHeight(state->labelFlex));
+    SetWindowPos(state->hLabel,
+        NULL,
+        x, y,
+        w, h,
+        SWP_NOZORDER);
+
+    x = roundf(YGNodeLayoutGetLeft(state->comboFlex));
+    y = roundf(YGNodeLayoutGetTop(state->comboFlex));
+    w = roundf(YGNodeLayoutGetWidth(state->comboFlex));
+    h = 32 + 64;
+    SetWindowPos(state->hCombo,
+        NULL,
+        x, y,
+        w, h,
+        SWP_NOZORDER);
+}
+
 static void OnCreate(HWND hwnd)
 {
+    ControlState* state = calloc(1, sizeof(ControlState));
+
     RECT rc;
     GetClientRect(hwnd, &rc);
 
-    CreateWindow(
+    state->hLabel = CreateWindow(
         "EDIT",
         "",
         WS_CHILD|WS_CLIPSIBLINGS|WS_VISIBLE|WS_BORDER|ES_RIGHT,
@@ -39,20 +77,42 @@ static void OnCreate(HWND hwnd)
         (HMENU)ID_TEXT,
         GetModuleHandle(NULL),
         0L);
-    HWND hCombo = CreateWindow(
+
+    int width = rc.right - rc.left - 32 - 10;
+    int height = 32 + 64;
+    state->hCombo = CreateWindow(
         "COMBOBOX",
         "",
         WS_CHILD|WS_CLIPSIBLINGS|WS_VISIBLE|CBS_DROPDOWNLIST|CBS_HASSTRINGS,
         32+10, 0,
-        rc.right - rc.left - 32 - 10, 32+64,
+        width, height,
         hwnd,
         (HMENU)ID_COMBO,
         GetModuleHandle(NULL),
         0L);
-    ComboBox_AddString(hCombo, "Undefined");
-    ComboBox_AddString(hCombo, "Points");
-    ComboBox_AddString(hCombo, "%");
-    ComboBox_AddString(hCombo, "Auto");
+    ComboBox_AddString(state->hCombo, "Undefined");
+    ComboBox_AddString(state->hCombo, "Points");
+    ComboBox_AddString(state->hCombo, "%");
+    ComboBox_AddString(state->hCombo, "Auto");
+
+    state->rootFlex = YGNodeNew();
+    YGNodeStyleSetWidth(state->rootFlex, rc.right - rc.left);
+    YGNodeStyleSetHeight(state->rootFlex, rc.bottom - rc.top);
+    YGNodeStyleSetFlexDirection(state->rootFlex, YGFlexDirectionRow);
+
+    state->labelFlex = YGNodeNew();
+    YGNodeStyleSetWidth(state->labelFlex, 32.0f);
+    YGNodeStyleSetHeight(state->labelFlex, 22.0f);
+    YGNodeInsertChild(state->rootFlex, state->labelFlex, 0);
+
+    state->comboFlex = YGNodeNew();
+    YGNodeStyleSetFlexGrow(state->comboFlex, 1.0f);
+    YGNodeStyleSetHeight(state->comboFlex, 32.0f + 64.0f);
+    YGNodeInsertChild(state->rootFlex, state->comboFlex, 1);
+
+    SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG)state);
+
+    Layout(state, rc.right - rc.left, rc.bottom - rc.top);
 }
 
 static void OnChange(HWND hwnd)
@@ -140,8 +200,21 @@ static void OnSetValue(HWND hwnd, const YGValue* value)
     SetWindowText(hText, text);
 }
 
+static void OnSize(ControlState* state, HWND hwnd, WORD width, WORD height)
+{
+    Layout(state, width, height);
+}
+
+static void OnDestroy(ControlState* state, HWND hwnd)
+{
+    YGNodeFreeRecursive(state->rootFlex);
+    free(state);
+}
+
 static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
+    ControlState* state = (ControlState*)GetWindowLongPtr(hwnd, GWLP_USERDATA);
+
     switch (msg)
     {
     case WM_CREATE:
@@ -160,6 +233,16 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lp
         return 0;
     case VVM_SETVALUE:
         OnSetValue(hwnd, (const YGValue*)lparam);
+        return 0;
+    case WM_SIZE:
+        if (state)
+        {
+            OnSize(state, hwnd, LOWORD(lparam), HIWORD(lparam));
+        }
+        return 0;
+    case WM_DESTROY:
+        OnDestroy(state, hwnd);
+        SetWindowLongPtr(hwnd, GWLP_USERDATA, 0);
         return 0;
     default:
         return DefWindowProc(hwnd, msg, wparam, lparam);

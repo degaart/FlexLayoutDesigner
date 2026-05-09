@@ -15,7 +15,6 @@ typedef struct NM_VALUEVIEW
     YGValue newValue;
 } NM_VALUEVIEW;
 
-
 bool ValueView_Init(HINSTANCE hInstance);
 HWND ValueView_Create(HINSTANCE hInstance, HWND hParent, int x, int y, int w, int h);
 void ValueView_Setvalue(HWND hwnd, YGValue value);
