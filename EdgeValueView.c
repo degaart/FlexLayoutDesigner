@@ -116,7 +116,7 @@ static void OnSize(EdgeValueViewState* state, HWND hwnd, int w, int h)
 
 static void OnDestroy(EdgeValueViewState* state)
 {
-    YGNodeFreeRecursive(state->flex);
+    DestroyFlex(state->flex);
     free(state);
 }
 
