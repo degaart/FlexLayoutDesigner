@@ -155,6 +155,7 @@ static Property gProperties[] =
     { "padding", PROPERTY_TYPE_EDGE_VALUE, { .ev = YGNodeStyleGetPadding },{ .ev = { .point = YGNodeStyleSetPadding, .percent = YGNodeStyleSetPaddingPercent, .auto_ = NULL } } },
     { "justify-content", PROPERTY_TYPE_JUSTIFY, JUSTIFY_PROP(JustifyContent) },
     { "align-content", PROPERTY_TYPE_ALIGN, ALIGN_PROP(AlignContent) },
+    { "align-items", PROPERTY_TYPE_ALIGN, ALIGN_PROP(AlignItems) },
     {NULL},
 };
 
@@ -251,6 +252,7 @@ static void CreateProperties(AppState* appState, HWND hParent)
         prop->flex = YGNodeNew();
         YGNodeStyleSetFlexDirection(prop->flex, YGFlexDirectionRow);
         YGNodeStyleSetMargin(prop->flex, YGEdgeTop, 2.0f);
+        YGNodeStyleSetAlignContent(prop->flex, YGAlignFlexStart);
         YGNodeInsertChild(appState->propsFlex, prop->flex, YGNodeGetChildCount(appState->propsFlex));
 
         prop->labelFlex = YGNodeNew();
