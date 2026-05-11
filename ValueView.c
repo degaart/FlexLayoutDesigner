@@ -24,16 +24,16 @@ enum UnitIDs
     UNIT_AUTO
 };
 
-typedef struct ControlState
+typedef struct EdgeValueViewState
 {
     YGNodeRef rootFlex;
     YGNodeRef labelFlex;
     YGNodeRef comboFlex;
     HWND hLabel;
     HWND hCombo;
-} ControlState;
+} EdgeValueViewState;
 
-static void Layout(ControlState* state, int width, int height)
+static void Layout(EdgeValueViewState* state, int width, int height)
 {
     YGNodeStyleSetWidth(state->rootFlex, width);
     YGNodeStyleSetHeight(state->rootFlex, height);
@@ -62,7 +62,7 @@ static void Layout(ControlState* state, int width, int height)
 
 static void OnCreate(HWND hwnd)
 {
-    ControlState* state = calloc(1, sizeof(ControlState));
+    EdgeValueViewState* state = calloc(1, sizeof(EdgeValueViewState));
 
     RECT rc;
     GetClientRect(hwnd, &rc);
@@ -200,14 +200,14 @@ static void OnSetValue(HWND hwnd, const YGValue* value)
     SetWindowText(hText, text);
 }
 
-static void OnSize(ControlState* state, HWND hwnd, WORD width, WORD height)
+static void OnSize(EdgeValueViewState* state, HWND hwnd, WORD width, WORD height)
 {
     RECT rc;
     GetClientRect(hwnd, &rc);
     Layout(state, rc.right - rc.left, rc.bottom - rc.top);
 }
 
-static void OnDestroy(ControlState* state, HWND hwnd)
+static void OnDestroy(EdgeValueViewState* state, HWND hwnd)
 {
     YGNodeFreeRecursive(state->rootFlex);
     free(state);
@@ -215,7 +215,7 @@ static void OnDestroy(ControlState* state, HWND hwnd)
 
 static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
-    ControlState* state = (ControlState*)GetWindowLongPtr(hwnd, GWLP_USERDATA);
+    EdgeValueViewState* state = (EdgeValueViewState*)GetWindowLongPtr(hwnd, GWLP_USERDATA);
 
     switch (msg)
     {

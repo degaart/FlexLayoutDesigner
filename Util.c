@@ -1,9 +1,8 @@
 #include "Util.h"
 
-#include <stdio.h>
+#include "Trace.h"
 #include <stdlib.h>
 #include <errno.h>
-#include <math.h>
 
 bool ParseFloat(const char* s, float* out)
 {
@@ -42,3 +41,124 @@ void CenterRect(RECT* inner, const RECT* outer)
     inner->right = inner->left + innerW;
     inner->bottom = inner->top + innerH;
 }
+
+static void DumpSingleFlex(YGNodeRef flex, int indent)
+{
+    char prefix[32] = {0};
+    strcpy(prefix, "+ ");
+    for (int i = 0; i < indent; i++)
+    {
+        prefix[i+2] = ' ';
+    }
+
+    TRACE("%s %d %d %d %d",
+          prefix,
+          roundf(YGNodeLayoutGetLeft(flex)), roundf(YGNodeLayoutGetTop(flex)),
+          roundf(YGNodeLayoutGetWidth(flex)), roundf(YGNodeLayoutGetHeight(flex)));
+
+    int childCount = YGNodeGetChildCount(flex);
+    for (int i = 0; i < childCount; i++)
+    {
+        DumpSingleFlex(YGNodeGetChild(flex, i), indent + 1);
+    }
+}
+
+void DumpFlex(const char* title, YGNodeRef flex)
+{
+    TRACE("*** %s ***", title);
+    DumpSingleFlex(flex, 0);
+}
+
+YGNodeRef CreateFlex(float width, float height, const char* name, HWND hWnd)
+{
+    YGNodeRef node = YGNodeNew();
+    if (!isnan(width))
+    {
+        YGNodeStyleSetWidth(node, width);
+    }
+    if (!isnan(height))
+    {
+        YGNodeStyleSetHeight(node, height);
+    }
+
+    if (name || hWnd)
+    {
+        FlexData* data = calloc(1, sizeof(FlexData));
+        if (name)
+        {
+            strcpy_s(data->label, sizeof(data->label), name);
+        }
+        data->hwnd = hWnd;
+        YGNodeSetContext(node, data);
+    }
+
+    return node;
+}
+
+void DestroyFlex(YGNodeRef flex)
+{
+    if (!flex)
+    {
+        return;
+    }
+
+    FlexData* data = YGNodeGetContext(flex);
+    if (data)
+    {
+        free(data);
+    }
+
+    unsigned childCount = YGNodeGetChildCount(flex);
+    for (unsigned i = 0; i < childCount; i++)
+    {
+        DestroyFlex(YGNodeGetChild(flex, i));
+    }
+    YGNodeFree(flex);
+}
+
+void LayoutFlex(YGNodeRef flex, float originX, float originY)
+{
+    unsigned childCount = YGNodeGetChildCount(flex);
+    for (unsigned i = 0; i < childCount; i++)
+    {
+        YGNodeRef node = YGNodeGetChild(flex, i);
+        FlexData* data = YGNodeGetContext(node);
+        
+        float left = YGNodeLayoutGetLeft(node) + originX;
+        float top = YGNodeLayoutGetTop(node) + originY;
+        if (data && data->hwnd)
+        {
+            char className[128];
+            GetClassName(data->hwnd, className, sizeof(className));
+
+            float width = YGNodeLayoutGetWidth(node);
+
+            float height = YGNodeLayoutGetHeight(node);
+            if (!strcmp(className, "ComboBox"))
+            {
+                height = 128.0f;
+            }
+            else if (!strcmp(className, "EdgeValueView"))
+            {
+                height = 128.0f;
+            }
+
+            SetWindowPos(data->hwnd, NULL,
+                roundf(left), roundf(top),
+                roundf(width), roundf(height),
+                SWP_NOZORDER);
+        }
+
+        if (data && data->label[0])
+        {
+            TRACE("%s: left=%d top=%d width=%d height=%d",
+                data->label,
+                (int)roundf(left), (int)roundf(top),
+                (int)roundf(YGNodeLayoutGetWidth(node)), (int)roundf(YGNodeLayoutGetHeight(node)));
+        }
+
+        LayoutFlex(node, left, top);
+    }
+}
+
+

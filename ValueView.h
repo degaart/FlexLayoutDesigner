@@ -6,7 +6,7 @@
 
 enum ValueViewNotifications
 {
-    VVN_CHANGED = 1,
+    VVN_CHANGED = 100,
 };
 
 typedef struct NM_VALUEVIEW
