@@ -70,6 +70,7 @@ typedef union PropertyValue
     YGPositionType  p;
     YGValue         ev[4];    /* YGEdgeLeft, YGEdgeTop, YGEdgeRight, YGEdgeBottom, in that order */
     float           ef[4];    /* YGEdgeLeft, YGEdgeTop, YGEdgeRight, YGEdgeBottom, in that order */
+    YGJustify       j;
 } PropertyValue;
 
 typedef union PropertyGetter
@@ -82,6 +83,7 @@ typedef union PropertyGetter
     YGPositionType  (*p)(YGNodeConstRef);
     YGValue         (*ev)(YGNodeConstRef, YGEdge);
     float           (*ef)(YGNodeConstRef, YGEdge);
+    YGJustify       (*j)(YGNodeConstRef);
 } PropertyGetter;
 
 typedef union PropertySetter
@@ -104,6 +106,7 @@ typedef union PropertySetter
         void (*auto_)(YGNodeRef, YGEdge);
     } ev;
     void (*ef)(YGNodeRef, YGEdge, float);
+    void (*j)(YGNodeRef, YGJustify);
 } PropertySetter;
 
 typedef enum PropertyType
@@ -117,6 +120,7 @@ typedef enum PropertyType
     PROPERTY_TYPE_WRAP,
     PROPERTY_TYPE_EDGE_VALUE,
     PROPERTY_TYPE_EDGE_FLOAT,
+    PROPERTY_TYPE_JUSTIFY,
 } PropertyType;
 
 typedef struct Property
@@ -138,6 +142,7 @@ typedef struct Property
 #define DIRECTION_PROP(p)   { .d = YGNodeStyleGet ## p },   { .d = YGNodeStyleSet ## p }
 #define EDGE_VALUE_PROP(p)  { .ev = YGNodeStyleGet ## p },  { .ev = { .point = YGNodeStyleSet ## p, .percent = YGNodeStyleSet ## p ## Percent, .auto_ = YGNodeStyleSet ## p ## Auto } }
 #define EDGE_FLOAT_PROP(p)  { .ef = YGNodeStyleGet ## p },  { .ef = YGNodeStyleSet ## p }
+#define JUSTIFY_PROP(p)     { .j = YGNodeStyleGet ## p },   { .j = YGNodeStyleSet ## p }
 
 static Property gProperties[] =
 {
@@ -148,6 +153,7 @@ static Property gProperties[] =
     {"flex-direction", PROPERTY_TYPE_DIRECTION, DIRECTION_PROP(FlexDirection) },
     { "margin", PROPERTY_TYPE_EDGE_VALUE, EDGE_VALUE_PROP(Margin) },
     { "padding", PROPERTY_TYPE_EDGE_VALUE, { .ev = YGNodeStyleGetPadding },{ .ev = { .point = YGNodeStyleSetPadding, .percent = YGNodeStyleSetPaddingPercent, .auto_ = NULL } } },
+    { "justify-content", PROPERTY_TYPE_JUSTIFY, JUSTIFY_PROP(JustifyContent) },
     {NULL},
 };
 
@@ -178,6 +184,9 @@ static void InitProperties()
             {
                 prop->default_.ev[edge] = prop->getter.ev(node, edge);
             }
+            break;
+        case PROPERTY_TYPE_JUSTIFY:
+            prop->default_.j = prop->getter.j(node);
             break;
         default:
             assert(!"Not implemented yet");
@@ -291,6 +300,7 @@ static void CreateProperties(AppState* appState, HWND hParent)
         case PROPERTY_TYPE_POSITION:
         case PROPERTY_TYPE_DIRECTION:
         case PROPERTY_TYPE_WRAP:
+        case PROPERTY_TYPE_JUSTIFY:
             prop->hControl = CreateWindow(
                 "COMBOBOX",
                 text,
@@ -364,6 +374,14 @@ static void CreateProperties(AppState* appState, HWND hParent)
             ComboBox_AddString(prop->hControl, "WRAP");
             ComboBox_AddString(prop->hControl, "WRAP_REVERSE");
             ComboBox_SetCurSel(prop->hControl, prop->default_.w);
+            break;
+        case PROPERTY_TYPE_JUSTIFY:
+            ComboBox_AddString(prop->hControl, "YGJustifyFlexStart");
+            ComboBox_AddString(prop->hControl, "YGJustifyCenter");
+            ComboBox_AddString(prop->hControl, "YGJustifyFlexEnd");
+            ComboBox_AddString(prop->hControl, "YGJustifySpaceBetween");
+            ComboBox_AddString(prop->hControl, "YGJustifySpaceAround");
+            ComboBox_AddString(prop->hControl, "YGJustifySpaceEvenly");
             break;
         default:
             break;
@@ -470,6 +488,17 @@ static void DisplayProperties(AppState* appState, YGNodeConstRef item)
             if (prop)
             {
                 int idx = prop->getter.w(item);
+                ComboBox_SetCurSel(prop->hControl, idx);
+            }
+            else
+            {
+                ComboBox_SetCurSel(prop->hControl, -1);
+            }
+            break;
+        case PROPERTY_TYPE_JUSTIFY:
+            if (prop)
+            {
+                int idx = prop->getter.j(item);
                 ComboBox_SetCurSel(prop->hControl, idx);
             }
             else
@@ -928,6 +957,12 @@ void OnComboBoxSelChange(AppState* appState, HWND hwnd, HWND hCombo, int id)
                 if (sel != -1)
                 {
                     prop->setter.d(item, sel);
+                }
+                break;
+            case PROPERTY_TYPE_JUSTIFY:
+                if (sel != -1)
+                {
+                    prop->setter.j(item, sel);
                 }
                 break;
             default:

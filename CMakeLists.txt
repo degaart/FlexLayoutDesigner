@@ -18,8 +18,9 @@ file(GLOB HEADER_FILES *.h)
 file(GLOB_RECURSE YOGA_SOURCES
     LIST_DIRECTORIES FALSE
     yoga/yoga/*.cpp)
+set(YOGA_HEADERS yoga/yoga/Yoga.h)
 
-add_executable(${PROJECT_NAME} WIN32 ${SOURCE_FILES} ${HEADER_FILES} ${YOGA_SOURCES})
+add_executable(${PROJECT_NAME} WIN32 ${SOURCE_FILES} ${HEADER_FILES} ${YOGA_SOURCES} ${YOGA_HEADERS})
 target_link_libraries(${PROJECT_NAME}
     PRIVATE
         shlwapi.lib
