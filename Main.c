@@ -68,6 +68,7 @@ typedef union PropertyValue
     YGWrap          w;
     YGPositionType  p;
     YGValue         ev[4];    /* YGEdgeLeft, YGEdgeTop, YGEdgeRight, YGEdgeBottom, in that order */
+    float           ef[4];    /* YGEdgeLeft, YGEdgeTop, YGEdgeRight, YGEdgeBottom, in that order */
 } PropertyValue;
 
 typedef union PropertyGetter
@@ -79,6 +80,7 @@ typedef union PropertyGetter
     YGWrap          (*w)(YGNodeConstRef);
     YGPositionType  (*p)(YGNodeConstRef);
     YGValue         (*ev)(YGNodeConstRef, YGEdge);
+    float           (*ef)(YGNodeConstRef, YGEdge);
 } PropertyGetter;
 
 typedef union PropertySetter
@@ -100,6 +102,7 @@ typedef union PropertySetter
         void (*percent)(YGNodeRef, YGEdge, float);
         void (*auto_)(YGNodeRef, YGEdge);
     } ev;
+    void (*ef)(YGNodeRef, YGEdge, float);
 } PropertySetter;
 
 typedef enum PropertyType
@@ -112,6 +115,7 @@ typedef enum PropertyType
     PROPERTY_TYPE_DIRECTION,
     PROPERTY_TYPE_WRAP,
     PROPERTY_TYPE_EDGE_VALUE,
+    PROPERTY_TYPE_EDGE_FLOAT,
 } PropertyType;
 
 typedef struct Property
@@ -128,10 +132,11 @@ typedef struct Property
     YGNodeRef controlFlex;
 } Property;
 
-#define VALUE_PROP(p) { .v = YGNodeStyleGet ## p }, { .v = { .point = YGNodeStyleSet ## p, .percent = YGNodeStyleSet ## p ## Percent, .auto_ = YGNodeStyleSet ## p ## Auto } } 
-#define FLOAT_PROP(p) { .f = YGNodeStyleGet ## p }, { .f = YGNodeStyleSet ## p }
-#define DIRECTION_PROP(p) { .d = YGNodeStyleGet ## p }, { .d = YGNodeStyleSet ## p }
-#define EDGE_VALUE_PROP(p) { .ev = YGNodeStyleGet ## p }, { .ev = { .point = YGNodeStyleSet ## p, .percent = YGNodeStyleSet ## p ## Percent, .auto_ = YGNodeStyleSet ## p ## Auto } }
+#define VALUE_PROP(p)       { .v = YGNodeStyleGet ## p },   { .v = { .point = YGNodeStyleSet ## p, .percent = YGNodeStyleSet ## p ## Percent, .auto_ = YGNodeStyleSet ## p ## Auto } } 
+#define FLOAT_PROP(p)       { .f = YGNodeStyleGet ## p },   { .f = YGNodeStyleSet ## p }
+#define DIRECTION_PROP(p)   { .d = YGNodeStyleGet ## p },   { .d = YGNodeStyleSet ## p }
+#define EDGE_VALUE_PROP(p)  { .ev = YGNodeStyleGet ## p },  { .ev = { .point = YGNodeStyleSet ## p, .percent = YGNodeStyleSet ## p ## Percent, .auto_ = YGNodeStyleSet ## p ## Auto } }
+#define EDGE_FLOAT_PROP(p)  { .ef = YGNodeStyleGet ## p },  { .ef = YGNodeStyleSet ## p }
 
 static Property gProperties[] =
 {
@@ -141,6 +146,7 @@ static Property gProperties[] =
     {"basis", PROPERTY_TYPE_VALUE, VALUE_PROP(FlexBasis) },
     {"flex-direction", PROPERTY_TYPE_DIRECTION, DIRECTION_PROP(FlexDirection) },
     { "margin", PROPERTY_TYPE_EDGE_VALUE, EDGE_VALUE_PROP(Margin) },
+    { "padding", PROPERTY_TYPE_EDGE_VALUE, { .ev = YGNodeStyleGetPadding },{ .ev = { .point = YGNodeStyleSetPadding, .percent = YGNodeStyleSetPaddingPercent, .auto_ = NULL } } },
     {NULL},
 };
 
@@ -788,7 +794,10 @@ void OnEdgeValueViewChanged(AppState* appState, HWND hwnd, HWND hControl, YGEdge
                 prop->setter.ev.percent(node, edge, value.value);
                 break;
             case YGUnitAuto:
-                prop->setter.ev.auto_(node, edge);
+                if (prop->setter.ev.auto_)
+                {
+                    prop->setter.ev.auto_(node, edge);
+                }
                 break;
             default:
                 assert(!"Invalid code path");
