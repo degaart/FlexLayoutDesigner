@@ -143,7 +143,7 @@ typedef struct Property
 #define EDGE_VALUE_PROP(p)  { .ev = YGNodeStyleGet ## p },  { .ev = { .point = YGNodeStyleSet ## p, .percent = YGNodeStyleSet ## p ## Percent, .auto_ = YGNodeStyleSet ## p ## Auto } }
 #define EDGE_FLOAT_PROP(p)  { .ef = YGNodeStyleGet ## p },  { .ef = YGNodeStyleSet ## p }
 #define JUSTIFY_PROP(p)     { .j = YGNodeStyleGet ## p },   { .j = YGNodeStyleSet ## p }
-
+#define ALIGN_PROP(p)       { .a = YGNodeStyleGet ## p },   { .a = YGNodeStyleSet ## p }
 static Property gProperties[] =
 {
     {"width", PROPERTY_TYPE_VALUE, VALUE_PROP(Width) },
@@ -154,6 +154,7 @@ static Property gProperties[] =
     { "margin", PROPERTY_TYPE_EDGE_VALUE, EDGE_VALUE_PROP(Margin) },
     { "padding", PROPERTY_TYPE_EDGE_VALUE, { .ev = YGNodeStyleGetPadding },{ .ev = { .point = YGNodeStyleSetPadding, .percent = YGNodeStyleSetPaddingPercent, .auto_ = NULL } } },
     { "justify-content", PROPERTY_TYPE_JUSTIFY, JUSTIFY_PROP(JustifyContent) },
+    { "align-content", PROPERTY_TYPE_ALIGN, ALIGN_PROP(AlignContent) },
     {NULL},
 };
 
@@ -187,6 +188,9 @@ static void InitProperties()
             break;
         case PROPERTY_TYPE_JUSTIFY:
             prop->default_.j = prop->getter.j(node);
+            break;
+        case PROPERTY_TYPE_ALIGN:
+            prop->default_.a = prop->getter.a(node);
             break;
         default:
             assert(!"Not implemented yet");
@@ -376,12 +380,12 @@ static void CreateProperties(AppState* appState, HWND hParent)
             ComboBox_SetCurSel(prop->hControl, prop->default_.w);
             break;
         case PROPERTY_TYPE_JUSTIFY:
-            ComboBox_AddString(prop->hControl, "YGJustifyFlexStart");
-            ComboBox_AddString(prop->hControl, "YGJustifyCenter");
-            ComboBox_AddString(prop->hControl, "YGJustifyFlexEnd");
-            ComboBox_AddString(prop->hControl, "YGJustifySpaceBetween");
-            ComboBox_AddString(prop->hControl, "YGJustifySpaceAround");
-            ComboBox_AddString(prop->hControl, "YGJustifySpaceEvenly");
+            ComboBox_AddString(prop->hControl, "START");
+            ComboBox_AddString(prop->hControl, "CENTER");
+            ComboBox_AddString(prop->hControl, "END");
+            ComboBox_AddString(prop->hControl, "SPACE_BETWEEN");
+            ComboBox_AddString(prop->hControl, "SPACE_AROUND");
+            ComboBox_AddString(prop->hControl, "SPACE_EVENLY");
             break;
         default:
             break;
