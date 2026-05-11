@@ -371,6 +371,11 @@ static void DisplayProperties(AppState* appState, YGNodeConstRef item)
     appState->blockUpdates++;
     for (Property* prop = gProperties; prop->name; prop++)
     {
+        if (!prop->hControl)
+        {
+            continue;
+        }
+
         switch (prop->type)
         {
         case PROPERTY_TYPE_FLOAT:
@@ -646,7 +651,7 @@ static void OnSize(AppState* appState, HWND hwnd, WORD width, WORD height)
                  rc.left, rc.right,
                  layoutViewWidth, layoutViewHeight,
                  SWP_NOMOVE | SWP_NOZORDER);
-    InvalidateRect(appState->hLayoutView, NULL, FALSE);
+    InvalidateRect(appState->hLayoutView, NULL, TRUE);
 }
 
 static void OnAdd(AppState* appState, HWND hwnd, HWND hButton)
@@ -674,7 +679,7 @@ static void OnAdd(AppState* appState, HWND hwnd, HWND hButton)
             treeItem,
             label,
             node);
-    InvalidateRect(appState->hLayoutView, NULL, FALSE);
+    InvalidateRect(appState->hLayoutView, NULL, TRUE);
 }
 
 static void OnCommand(AppState* appState, HWND hwnd, HWND hButton, unsigned buttonID)
