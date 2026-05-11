@@ -164,7 +164,7 @@ bool EdgeValueView_Init(HINSTANCE hInstance)
 HWND EdgeValueView_Create(HINSTANCE hInstance, HWND hParent, int x, int y, int w, int h)
 {
     HWND hwnd = CreateWindowEx(
-        WS_EX_STATICEDGE,
+        0,
         CLASSNAME,
         "",
         WS_CHILD|WS_CLIPSIBLINGS|WS_CLIPCHILDREN|WS_VISIBLE,

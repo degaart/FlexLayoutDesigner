@@ -202,10 +202,6 @@ static void Layout(YGNodeRef root, float originX, float originY)
             {
                 height = 128.0f;
             }
-            else if (!strcmp(className, "EdgeValueView"))
-            {
-                height = 128.0f;
-            }
 
             SetWindowPos(hwnd, NULL,
                 roundf(left), roundf(top),
