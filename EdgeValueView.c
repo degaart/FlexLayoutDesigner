@@ -41,22 +41,23 @@ static void OnCreate(HWND hwnd)
         snprintf(flexLabel, sizeof(flexLabel), "controls[%d].flex", i);
         state->controls[i].flex = CreateFlex(NAN, 22.0f, flexLabel, NULL);
         YGNodeStyleSetFlexDirection(state->controls[i].flex, YGFlexDirectionRow);
+        YGNodeStyleSetMargin(state->controls[i].flex, YGEdgeTop, 2.0f);
         YGNodeInsertChild(state->flex, state->controls[i].flex, YGNodeGetChildCount(state->flex));
 
         const char* text;
         switch (i)
         {
         case YGEdgeLeft:
-            text = "left";
+            text = "left:";
             break;
         case YGEdgeTop:
-            text = "top";
+            text = "top:";
             break;
         case YGEdgeRight:
-            text = "right";
+            text = "right:";
             break;
         case YGEdgeBottom:
-            text = "bottom";
+            text = "bottom:";
             break;
         default:
             assert(!"Invalid code path");

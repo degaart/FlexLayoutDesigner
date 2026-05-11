@@ -236,6 +236,7 @@ static void CreateProperties(AppState* appState, HWND hParent)
     {
         prop->flex = YGNodeNew();
         YGNodeStyleSetFlexDirection(prop->flex, YGFlexDirectionRow);
+        YGNodeStyleSetMargin(prop->flex, YGEdgeTop, 2.0f);
         YGNodeInsertChild(appState->propsFlex, prop->flex, YGNodeGetChildCount(appState->propsFlex));
 
         prop->labelFlex = YGNodeNew();
