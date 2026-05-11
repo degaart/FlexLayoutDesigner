@@ -1,6 +1,5 @@
 #include "EdgeValueView.h"
 
-#include "Trace.h"
 #include "Util.h"
 #include "ValueView.h"
 

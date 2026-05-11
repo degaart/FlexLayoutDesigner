@@ -22,20 +22,21 @@
  * └──────────────────────┘ └─────────────────────────────────┘
  *
 */
-#include <Windows.h>
-#include <stdlib.h>
-#include <windowsx.h>
-#include <stdbool.h>
-#include "LayoutView.h"
-#include "ScrollView.h"
-#include "ValueView.h"
+
 #include "EdgeValueView.h"
 #include "GroupBox.h"
+#include "LayoutView.h"
+#include "ScrollView.h"
 #include "Trace.h"
+#include "ValueView.h"
 #include <CommCtrl.h>
-#include <stdio.h>
-#include <math.h>
+#include <Windows.h>
 #include <assert.h>
+#include <math.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <windowsx.h>
 #include <yoga/Yoga.h>
 
 #define APPNAME "FlexLayoutDesigner"
