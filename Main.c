@@ -144,6 +144,8 @@ typedef struct Property
 #define EDGE_FLOAT_PROP(p)  { .ef = YGNodeStyleGet ## p },  { .ef = YGNodeStyleSet ## p }
 #define JUSTIFY_PROP(p)     { .j = YGNodeStyleGet ## p },   { .j = YGNodeStyleSet ## p }
 #define ALIGN_PROP(p)       { .a = YGNodeStyleGet ## p },   { .a = YGNodeStyleSet ## p }
+#define POSITION_PROP(P)    { .p = YGNodeStyleGet ## P },   { .p = YGNodeStyleSet ## P }
+
 static Property gProperties[] =
 {
     {"width", PROPERTY_TYPE_VALUE, VALUE_PROP(Width) },
@@ -157,6 +159,7 @@ static Property gProperties[] =
     { "align-content", PROPERTY_TYPE_ALIGN, ALIGN_PROP(AlignContent) },
     { "align-items", PROPERTY_TYPE_ALIGN, ALIGN_PROP(AlignItems) },
     { "align-self", PROPERTY_TYPE_ALIGN, ALIGN_PROP(AlignSelf) },
+    { "position", PROPERTY_TYPE_POSITION, POSITION_PROP(PositionType) },
     {NULL},
 };
 
@@ -193,6 +196,9 @@ static void InitProperties()
             break;
         case PROPERTY_TYPE_ALIGN:
             prop->default_.a = prop->getter.a(node);
+            break;
+        case PROPERTY_TYPE_POSITION:
+            prop->default_.p = prop->getter.p(node);
             break;
         default:
             assert(!"Not implemented yet");
