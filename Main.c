@@ -145,6 +145,7 @@ typedef struct Property
 #define JUSTIFY_PROP(p)     { .j = YGNodeStyleGet ## p },   { .j = YGNodeStyleSet ## p }
 #define ALIGN_PROP(p)       { .a = YGNodeStyleGet ## p },   { .a = YGNodeStyleSet ## p }
 #define POSITION_PROP(P)    { .p = YGNodeStyleGet ## P },   { .p = YGNodeStyleSet ## P }
+#define WRAP_PROP(p)        { .w = YGNodeStyleGet ## p },   { .w = YGNodeStyleSet ## p }
 
 static Property gProperties[] =
 {
@@ -160,6 +161,7 @@ static Property gProperties[] =
     { "align-items", PROPERTY_TYPE_ALIGN, ALIGN_PROP(AlignItems) },
     { "align-self", PROPERTY_TYPE_ALIGN, ALIGN_PROP(AlignSelf) },
     { "position", PROPERTY_TYPE_POSITION, POSITION_PROP(PositionType) },
+    { "flex-wrap", PROPERTY_TYPE_WRAP, WRAP_PROP(FlexWrap) },
     {NULL},
 };
 
@@ -199,6 +201,9 @@ static void InitProperties()
             break;
         case PROPERTY_TYPE_POSITION:
             prop->default_.p = prop->getter.p(node);
+            break;
+        case PROPERTY_TYPE_WRAP:
+            prop->default_.w = prop->getter.w(node);
             break;
         default:
             assert(!"Not implemented yet");
