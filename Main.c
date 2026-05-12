@@ -156,6 +156,7 @@ static Property gProperties[] =
     { "justify-content", PROPERTY_TYPE_JUSTIFY, JUSTIFY_PROP(JustifyContent) },
     { "align-content", PROPERTY_TYPE_ALIGN, ALIGN_PROP(AlignContent) },
     { "align-items", PROPERTY_TYPE_ALIGN, ALIGN_PROP(AlignItems) },
+    { "align-self", PROPERTY_TYPE_ALIGN, ALIGN_PROP(AlignSelf) },
     {NULL},
 };
 
