@@ -22,20 +22,10 @@ typedef struct WindowData
     YGNodeRef selectedFlex;
 } WindowData;
 
-uint32_t GenerateColor(int index)
-{
-    if (index == 0)
-    {
-        return 0xFFFFFF;
-    }
-    return ((uint32_t)index * 2654435761u) >> 8;
-}
-
 static void PaintFlex(HDC hdc, WindowData* data, YGNodeRef flex)
 {
-    int index = (int)YGNodeGetContext(flex);
-    uint32_t color = GenerateColor(index) & 0xFFFFFF;
-    TRACE("Index=%d color=0x%X", index, color);
+    NodeContext* ctx = YGNodeGetContext(flex);
+    assert(ctx != NULL);
 
     float left = YGNodeLayoutGetLeft(flex);
     float top = YGNodeLayoutGetTop(flex);
@@ -48,10 +38,10 @@ static void PaintFlex(HDC hdc, WindowData* data, YGNodeRef flex)
     rc.right = roundf(left + width);
     rc.bottom = roundf(top + height);
 
-    HBRUSH brush = CreateSolidBrush(color);
+    HBRUSH brush = CreateSolidBrush(ctx->color);
     if (flex == data->selectedFlex)
     {
-        HPEN pen = CreatePen(PS_SOLID, 1, color ^ 0x00FFFFFF);
+        HPEN pen = CreatePen(PS_SOLID, 1, ctx->color ^ 0x00FFFFFF);
         SelectObject(hdc, pen);
         SelectObject(hdc, brush);
         Rectangle(hdc, rc.left, rc.top, rc.right, rc.bottom);
@@ -63,16 +53,14 @@ static void PaintFlex(HDC hdc, WindowData* data, YGNodeRef flex)
     }
     DeleteObject(brush);
 
-    char text[16];
-    snprintf(text, sizeof(text), "%d", index);
-    int textLen = strlen(text);
+    int textLen = strlen(ctx->label);
 
-    SetBkColor(hdc, color);
+    SetBkColor(hdc, ctx->color);
     SetTextAlign(hdc, TA_LEFT|TA_TOP);
-    SetTextColor(hdc, color ^ 0x00FFFFFF);
+    SetTextColor(hdc, ctx->color ^ 0x00FFFFFF);
 
     SIZE textSize;
-    GetTextExtentPoint32(hdc, text, textLen, &textSize);
+    GetTextExtentPoint32(hdc, ctx->label, textLen, &textSize);
 
     RECT textRc;
     SetRect(&textRc, 0, 0, textSize.cx, textSize.cy);
@@ -83,7 +71,7 @@ static void PaintFlex(HDC hdc, WindowData* data, YGNodeRef flex)
             textRc.top,
             ETO_OPAQUE,
             NULL,
-            text,
+            ctx->label,
             textLen,
             NULL);
 

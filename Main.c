@@ -22,6 +22,7 @@
 #include "LayoutView.h"
 #include "ScrollView.h"
 #include "Trace.h"
+#include "Util.h"
 #include "ValueView.h"
 #include <CommCtrl.h>
 #include <Windows.h>
@@ -76,6 +77,7 @@ typedef union PropertyValue
     YGJustify       j;
     YGOverflow      o;
     YGDisplay       disp;
+    char            str[128];
 } PropertyValue;
 
 typedef union PropertyGetter
@@ -91,6 +93,7 @@ typedef union PropertyGetter
     YGJustify       (*j)(YGNodeConstRef);
     YGOverflow      (*o)(YGNodeConstRef);
     YGDisplay       (*disp)(YGNodeConstRef);
+    void            (*str)(YGNodeConstRef, char*, size_t);
 } PropertyGetter;
 
 typedef union PropertySetter
@@ -116,6 +119,7 @@ typedef union PropertySetter
     void (*j)(YGNodeRef, YGJustify);
     void (*o)(YGNodeRef, YGOverflow);
     void (*disp)(YGNodeRef, YGDisplay);
+    void (*str)(YGNodeRef, const char*);
 } PropertySetter;
 
 typedef enum PropertyType
@@ -131,6 +135,7 @@ typedef enum PropertyType
     PROPERTY_TYPE_JUSTIFY,
     PROPERTY_TYPE_OVERFLOW,
     PROPERTY_TYPE_DISPLAY,
+    PROPERTY_TYPE_STRING,
 } PropertyType;
 
 typedef struct Property
@@ -159,6 +164,9 @@ typedef struct Property
 #define OVERFLOW_PROP(p)    { .o = YGNodeStyleGet ## p },   { .o = YGNodeStyleSet ## p }
 #define DISPLAY_PROP(p)     { .disp = YGNodeStyleGet ## p },{ .disp = YGNodeStyleSet ## p }
 
+void NodeGetContext(YGNodeConstRef, char*, size_t);
+void NodeSetContext(YGNodeRef, const char*);
+
 static Property gProperties[] =
 {
     { "width", PROPERTY_TYPE_VALUE, VALUE_PROP(Width) },
@@ -185,7 +193,8 @@ static Property gProperties[] =
     { "overflow", PROPERTY_TYPE_OVERFLOW, OVERFLOW_PROP(Overflow) },
     { "display", PROPERTY_TYPE_DISPLAY, DISPLAY_PROP(Display) },
     { "aspect-ratio", PROPERTY_TYPE_FLOAT, FLOAT_PROP(AspectRatio) },
-    { NULL},
+    { "context", PROPERTY_TYPE_STRING, { .str = NodeGetContext }, { .str = NodeSetContext } },
+    { NULL },
 };
 
 #define DUMP_FLEX(label, flex) \
@@ -193,6 +202,33 @@ static Property gProperties[] =
         label, \
         (int)roundf(YGNodeLayoutGetLeft(flex)), (int)roundf(YGNodeLayoutGetTop(flex)), \
         (int)roundf(YGNodeLayoutGetWidth(flex)), (int)roundf(YGNodeLayoutGetHeight(flex)))
+
+void NodeGetContext(YGNodeConstRef node, char* buffer, size_t size)
+{
+    NodeContext* ctx = YGNodeGetContext((YGNodeRef)node);
+    if (!ctx)
+    {
+        if (buffer && size)
+        {
+            *buffer = '\0';
+        }
+        return;
+    }
+
+    strcpy_s(buffer, size, ctx->context);
+}
+
+void NodeSetContext(YGNodeRef node, const char* buffer)
+{
+    NodeContext* ctx = YGNodeGetContext(node);
+    if (!ctx)
+    {
+        ctx = calloc(1, sizeof(NodeContext));
+        YGNodeSetContext(node, ctx);
+    }
+
+    strcpy_s(ctx->context, sizeof(ctx->context), buffer);
+}
 
 static void InitProperties()
 {
@@ -239,6 +275,9 @@ static void InitProperties()
             break;
         case PROPERTY_TYPE_DISPLAY:
             prop->default_.disp = prop->getter.disp(node);
+            break;
+        case PROPERTY_TYPE_STRING:
+            prop->default_.str[0] = '\0';
             break;
         default:
             assert(!"Not implemented yet");
@@ -371,6 +410,18 @@ static void CreateProperties(AppState* appState, HWND hParent)
                 appState->hInstance,
                 0L);
             break;
+        case PROPERTY_TYPE_STRING:
+            prop->hControl = CreateWindow(
+                "EDIT",
+                "",
+                WS_CHILD|WS_VISIBLE|WS_CLIPSIBLINGS|WS_BORDER,
+                0, 0,
+                32, 32,
+                hParent,
+                NULL,
+                appState->hInstance,
+                0L);
+            break;
         default:
             assert(false);
             break;
@@ -456,6 +507,9 @@ static void CreateProperties(AppState* appState, HWND hParent)
         case PROPERTY_TYPE_DISPLAY:
             ComboBox_AddString(prop->hControl, "FLEX");
             ComboBox_AddString(prop->hControl, "NONE");
+            break;
+        case PROPERTY_TYPE_STRING:
+            SetWindowText(prop->hControl, prop->default_.str);
             break;
         default:
             break;
@@ -618,6 +672,14 @@ static void DisplayProperties(AppState* appState, YGNodeConstRef item)
                 ComboBox_AddString(prop->hControl, -1);
             }
             break;
+        case PROPERTY_TYPE_STRING:
+            if (item)
+            {
+                char buffer[128];
+                prop->getter.str(item, buffer, sizeof(buffer));
+                SetWindowText(prop->hControl, buffer);
+            }
+            break;
         default:
             assert(false);
             break;
@@ -679,34 +741,28 @@ static YGNodeRef GetSelectedNode(HWND hLayoutTree, HTREEITEM* treeItem)
     return (YGNodeRef)tie.lParam;
 }
 
+static YGNodeRef CreateNode(YGNodeRef parent, int index)
+{
+    NodeContext* ctx = calloc(1, sizeof(NodeContext));
+    ctx->color = GenerateColor(index);
+    snprintf(ctx->label, sizeof(ctx->label), "%d", index);
+
+    YGNodeRef node = YGNodeNew();
+    YGNodeSetContext(node, ctx);
+
+    if (parent)
+    {
+        YGNodeInsertChild(parent, node, YGNodeGetChildCount(parent));
+    }
+    return node;
+}
+
 static void OnCreate(HWND hwnd, AppState* appState)
 {
     SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)appState);
 
     RECT rc;
     GetClientRect(hwnd, &rc);
-
-    HWND addButton = CreateWindow(
-        "BUTTON",
-        "Add",
-        WS_CHILD|WS_VISIBLE|WS_CLIPSIBLINGS,
-        0, 0,
-        300, 32,
-        hwnd,
-        (HMENU)IDC_ADD_BUTTON,
-        appState->hInstance,
-        0L);
-
-    HWND generateCodeButton = CreateWindow(
-        "BUTTON",
-        "Generate Code",
-        WS_CHILD|WS_VISIBLE|WS_CLIPSIBLINGS,
-        0, 32+10,
-        300, 32,
-        hwnd,
-        (HMENU)IDC_GENERATE_BUTTON,
-        appState->hInstance,
-        0L);
 
     appState->hLayoutTree = CreateWindowEx(
         WS_EX_CLIENTEDGE,
@@ -721,10 +777,9 @@ static void OnCreate(HWND hwnd, AppState* appState)
         appState->hInstance,
         0L);
 
-    appState->rootFlex = YGNodeNew();
+    appState->rootFlex = CreateNode(NULL, appState->index++);
     YGNodeStyleSetWidth(appState->rootFlex, rc.right - rc.left);
     YGNodeStyleSetHeight(appState->rootFlex, rc.bottom - rc.top);
-    YGNodeSetContext(appState->rootFlex, NULL);
     YGNodeCalculateLayout(appState->rootFlex, YGUndefined, YGUndefined, YGDirectionLTR);
 
     appState->hRootTreeItem = InsertTreeItem(appState->hLayoutTree,
@@ -813,20 +868,16 @@ static void OnAdd(AppState* appState, HWND hwnd, HWND hButton)
         return;
     }
 
-    char label[32];
-    snprintf(label, sizeof(label), "%d", ++appState->index);
-
-    YGNodeRef node = YGNodeNew();
-    YGNodeSetContext(node, (void*)appState->index);
-    YGNodeInsertChild(parentNode, node, YGNodeGetChildCount(parentNode));
+    YGNodeRef node = CreateNode(parentNode, appState->index++);
 
     RECT rc;
     GetClientRect(hwnd, &rc);
     YGNodeCalculateLayout(appState->rootFlex, YGUndefined, YGUndefined, YGDirectionLTR);
 
+    NodeContext* ctx = YGNodeGetContext(node);
     InsertTreeItem(appState->hLayoutTree,
             treeItem,
-            label,
+            ctx->label,
             node);
     InvalidateRect(appState->hLayoutView, NULL, TRUE);
 }
@@ -836,10 +887,7 @@ static void OnCommand(AppState* appState, HWND hwnd, HWND hButton, unsigned butt
     switch (buttonID)
     {
     case IDM_FLEX_ADD:
-    case IDC_ADD_BUTTON:
         OnAdd(appState, hwnd, hButton);
-        break;
-    case IDC_GENERATE_BUTTON:
         break;
     case IDM_FILE_EXIT:
         DestroyWindow(hwnd);
@@ -1036,7 +1084,7 @@ static void OnEditControlChange(AppState* appState, HWND hwnd, HWND hControl, in
     {
         if (prop->hControl == hControl)
         {
-            char buffer[32];
+            char buffer[128];
             GetWindowText(hControl, buffer, sizeof(buffer));
 
             switch (prop->type)
@@ -1050,6 +1098,9 @@ static void OnEditControlChange(AppState* appState, HWND hwnd, HWND hControl, in
                 {
                     prop->setter.f(node, prop->default_.f);
                 }
+                break;
+            case PROPERTY_TYPE_STRING:
+                prop->setter.str(node, buffer);
                 break;
             default:
                 assert(false);

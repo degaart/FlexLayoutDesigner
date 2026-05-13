@@ -161,4 +161,13 @@ void LayoutFlex(YGNodeRef flex, float originX, float originY)
     }
 }
 
+uint32_t GenerateColor(int index)
+{
+    if (index == 0)
+    {
+        return 0xFFFFFF;
+    }
+    return ((uint32_t)index * 2654435761u) >> 8;
+}
+
 
