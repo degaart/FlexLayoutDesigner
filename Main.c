@@ -72,6 +72,7 @@ typedef union PropertyValue
     float           ef[4];    /* YGEdgeLeft, YGEdgeTop, YGEdgeRight, YGEdgeBottom, in that order */
     YGJustify       j;
     YGOverflow      o;
+    YGDisplay       disp;
 } PropertyValue;
 
 typedef union PropertyGetter
@@ -86,6 +87,7 @@ typedef union PropertyGetter
     float           (*ef)(YGNodeConstRef, YGEdge);
     YGJustify       (*j)(YGNodeConstRef);
     YGOverflow      (*o)(YGNodeConstRef);
+    YGDisplay       (*disp)(YGNodeConstRef);
 } PropertyGetter;
 
 typedef union PropertySetter
@@ -110,13 +112,13 @@ typedef union PropertySetter
     void (*ef)(YGNodeRef, YGEdge, float);
     void (*j)(YGNodeRef, YGJustify);
     void (*o)(YGNodeRef, YGOverflow);
+    void (*disp)(YGNodeRef, YGDisplay);
 } PropertySetter;
 
 typedef enum PropertyType
 {
     PROPERTY_TYPE_FLOAT,
     PROPERTY_TYPE_VALUE,
-
     PROPERTY_TYPE_ALIGN,
     PROPERTY_TYPE_POSITION,
     PROPERTY_TYPE_DIRECTION,
@@ -125,6 +127,7 @@ typedef enum PropertyType
     PROPERTY_TYPE_EDGE_FLOAT,
     PROPERTY_TYPE_JUSTIFY,
     PROPERTY_TYPE_OVERFLOW,
+    PROPERTY_TYPE_DISPLAY,
 } PropertyType;
 
 typedef struct Property
@@ -151,6 +154,7 @@ typedef struct Property
 #define POSITION_PROP(P)    { .p = YGNodeStyleGet ## P },   { .p = YGNodeStyleSet ## P }
 #define WRAP_PROP(p)        { .w = YGNodeStyleGet ## p },   { .w = YGNodeStyleSet ## p }
 #define OVERFLOW_PROP(p)    { .o = YGNodeStyleGet ## p },   { .o = YGNodeStyleSet ## p }
+#define DISPLAY_PROP(p)     { .disp = YGNodeStyleGet ## p },{ .disp = YGNodeStyleSet ## p }
 
 static Property gProperties[] =
 {
@@ -168,6 +172,8 @@ static Property gProperties[] =
     { "position", PROPERTY_TYPE_POSITION, POSITION_PROP(PositionType) },
     { "flex-wrap", PROPERTY_TYPE_WRAP, WRAP_PROP(FlexWrap) },
     { "overflow", PROPERTY_TYPE_OVERFLOW, OVERFLOW_PROP(Overflow) },
+    { "display", PROPERTY_TYPE_DISPLAY, DISPLAY_PROP(Display) },
+    { "flex", PROPERTY_TYPE_FLOAT, FLOAT_PROP(Flex) },
     {NULL},
 };
 
@@ -213,6 +219,9 @@ static void InitProperties()
             break;
         case PROPERTY_TYPE_OVERFLOW:
             prop->default_.o = prop->getter.o(node);
+            break;
+        case PROPERTY_TYPE_DISPLAY:
+            prop->default_.disp = prop->getter.disp(node);
             break;
         default:
             assert(!"Not implemented yet");
@@ -329,6 +338,7 @@ static void CreateProperties(AppState* appState, HWND hParent)
         case PROPERTY_TYPE_WRAP:
         case PROPERTY_TYPE_JUSTIFY:
         case PROPERTY_TYPE_OVERFLOW:
+        case PROPERTY_TYPE_DISPLAY:
             prop->hControl = CreateWindow(
                 "COMBOBOX",
                 text,
@@ -415,6 +425,10 @@ static void CreateProperties(AppState* appState, HWND hParent)
             ComboBox_AddString(prop->hControl, "VISIBLE");
             ComboBox_AddString(prop->hControl, "HIDDEN");
             ComboBox_AddString(prop->hControl, "SCROLL");
+            break;
+        case PROPERTY_TYPE_DISPLAY:
+            ComboBox_AddString(prop->hControl, "FLEX");
+            ComboBox_AddString(prop->hControl, "NONE");
             break;
         default:
             break;
@@ -548,6 +562,17 @@ static void DisplayProperties(AppState* appState, YGNodeConstRef item)
             else
             {
                 ComboBox_SetCurSel(prop->hControl, -1);
+            }
+            break;
+        case PROPERTY_TYPE_DISPLAY:
+            if (prop)
+            {
+                int idx = prop->getter.disp(item);
+                ComboBox_SetCurSel(prop->hControl, idx);
+            }
+            else
+            {
+                ComboBox_AddString(prop->hControl, -1);
             }
             break;
         default:
@@ -1013,6 +1038,12 @@ void OnComboBoxSelChange(AppState* appState, HWND hwnd, HWND hCombo, int id)
                 if (sel != -1)
                 {
                     prop->setter.o(item, sel);
+                }
+                break;
+            case PROPERTY_TYPE_DISPLAY:
+                if (sel != -1)
+                {
+                    prop->setter.disp(item, sel);
                 }
                 break;
             default:
