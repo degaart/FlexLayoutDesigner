@@ -182,6 +182,7 @@ static Property gProperties[] =
     { "flex-wrap", PROPERTY_TYPE_WRAP, WRAP_PROP(FlexWrap) },
     { "overflow", PROPERTY_TYPE_OVERFLOW, OVERFLOW_PROP(Overflow) },
     { "display", PROPERTY_TYPE_DISPLAY, DISPLAY_PROP(Display) },
+    { "aspect-ratio", PROPERTY_TYPE_FLOAT, FLOAT_PROP(AspectRatio) },
     { NULL},
 };
 
