@@ -71,6 +71,7 @@ typedef union PropertyValue
     YGValue         ev[4];    /* YGEdgeLeft, YGEdgeTop, YGEdgeRight, YGEdgeBottom, in that order */
     float           ef[4];    /* YGEdgeLeft, YGEdgeTop, YGEdgeRight, YGEdgeBottom, in that order */
     YGJustify       j;
+    YGOverflow      o;
 } PropertyValue;
 
 typedef union PropertyGetter
@@ -84,6 +85,7 @@ typedef union PropertyGetter
     YGValue         (*ev)(YGNodeConstRef, YGEdge);
     float           (*ef)(YGNodeConstRef, YGEdge);
     YGJustify       (*j)(YGNodeConstRef);
+    YGOverflow      (*o)(YGNodeConstRef);
 } PropertyGetter;
 
 typedef union PropertySetter
@@ -107,6 +109,7 @@ typedef union PropertySetter
     } ev;
     void (*ef)(YGNodeRef, YGEdge, float);
     void (*j)(YGNodeRef, YGJustify);
+    void (*o)(YGNodeRef, YGOverflow);
 } PropertySetter;
 
 typedef enum PropertyType
@@ -121,6 +124,7 @@ typedef enum PropertyType
     PROPERTY_TYPE_EDGE_VALUE,
     PROPERTY_TYPE_EDGE_FLOAT,
     PROPERTY_TYPE_JUSTIFY,
+    PROPERTY_TYPE_OVERFLOW,
 } PropertyType;
 
 typedef struct Property
@@ -146,6 +150,7 @@ typedef struct Property
 #define ALIGN_PROP(p)       { .a = YGNodeStyleGet ## p },   { .a = YGNodeStyleSet ## p }
 #define POSITION_PROP(P)    { .p = YGNodeStyleGet ## P },   { .p = YGNodeStyleSet ## P }
 #define WRAP_PROP(p)        { .w = YGNodeStyleGet ## p },   { .w = YGNodeStyleSet ## p }
+#define OVERFLOW_PROP(p)    { .o = YGNodeStyleGet ## p },   { .o = YGNodeStyleSet ## p }
 
 static Property gProperties[] =
 {
@@ -162,6 +167,7 @@ static Property gProperties[] =
     { "align-self", PROPERTY_TYPE_ALIGN, ALIGN_PROP(AlignSelf) },
     { "position", PROPERTY_TYPE_POSITION, POSITION_PROP(PositionType) },
     { "flex-wrap", PROPERTY_TYPE_WRAP, WRAP_PROP(FlexWrap) },
+    { "overflow", PROPERTY_TYPE_OVERFLOW, OVERFLOW_PROP(Overflow) },
     {NULL},
 };
 
@@ -204,6 +210,9 @@ static void InitProperties()
             break;
         case PROPERTY_TYPE_WRAP:
             prop->default_.w = prop->getter.w(node);
+            break;
+        case PROPERTY_TYPE_OVERFLOW:
+            prop->default_.o = prop->getter.o(node);
             break;
         default:
             assert(!"Not implemented yet");
@@ -319,6 +328,7 @@ static void CreateProperties(AppState* appState, HWND hParent)
         case PROPERTY_TYPE_DIRECTION:
         case PROPERTY_TYPE_WRAP:
         case PROPERTY_TYPE_JUSTIFY:
+        case PROPERTY_TYPE_OVERFLOW:
             prop->hControl = CreateWindow(
                 "COMBOBOX",
                 text,
@@ -400,6 +410,11 @@ static void CreateProperties(AppState* appState, HWND hParent)
             ComboBox_AddString(prop->hControl, "SPACE_BETWEEN");
             ComboBox_AddString(prop->hControl, "SPACE_AROUND");
             ComboBox_AddString(prop->hControl, "SPACE_EVENLY");
+            break;
+        case PROPERTY_TYPE_OVERFLOW:
+            ComboBox_AddString(prop->hControl, "VISIBLE");
+            ComboBox_AddString(prop->hControl, "HIDDEN");
+            ComboBox_AddString(prop->hControl, "SCROLL");
             break;
         default:
             break;
@@ -514,6 +529,17 @@ static void DisplayProperties(AppState* appState, YGNodeConstRef item)
             }
             break;
         case PROPERTY_TYPE_JUSTIFY:
+            if (prop)
+            {
+                int idx = prop->getter.j(item);
+                ComboBox_SetCurSel(prop->hControl, idx);
+            }
+            else
+            {
+                ComboBox_SetCurSel(prop->hControl, -1);
+            }
+            break;
+        case PROPERTY_TYPE_OVERFLOW:
             if (prop)
             {
                 int idx = prop->getter.j(item);
@@ -981,6 +1007,12 @@ void OnComboBoxSelChange(AppState* appState, HWND hwnd, HWND hCombo, int id)
                 if (sel != -1)
                 {
                     prop->setter.j(item, sel);
+                }
+                break;
+            case PROPERTY_TYPE_OVERFLOW:
+                if (sel != -1)
+                {
+                    prop->setter.o(item, sel);
                 }
                 break;
             default:
