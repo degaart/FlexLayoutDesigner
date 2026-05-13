@@ -160,7 +160,9 @@ static Property gProperties[] =
 {
     {"width", PROPERTY_TYPE_VALUE, VALUE_PROP(Width) },
     {"height", PROPERTY_TYPE_VALUE, VALUE_PROP(Height) },
-    {"grow", PROPERTY_TYPE_FLOAT, FLOAT_PROP(FlexGrow) },
+    { "flex", PROPERTY_TYPE_FLOAT, FLOAT_PROP(Flex) },
+    {"flex-grow", PROPERTY_TYPE_FLOAT, FLOAT_PROP(FlexGrow) },
+    {"flex-shrink", PROPERTY_TYPE_FLOAT, FLOAT_PROP(FlexShrink) },
     {"basis", PROPERTY_TYPE_VALUE, VALUE_PROP(FlexBasis) },
     {"flex-direction", PROPERTY_TYPE_DIRECTION, DIRECTION_PROP(FlexDirection) },
     { "margin", PROPERTY_TYPE_EDGE_VALUE, EDGE_VALUE_PROP(Margin) },
@@ -173,7 +175,6 @@ static Property gProperties[] =
     { "flex-wrap", PROPERTY_TYPE_WRAP, WRAP_PROP(FlexWrap) },
     { "overflow", PROPERTY_TYPE_OVERFLOW, OVERFLOW_PROP(Overflow) },
     { "display", PROPERTY_TYPE_DISPLAY, DISPLAY_PROP(Display) },
-    { "flex", PROPERTY_TYPE_FLOAT, FLOAT_PROP(Flex) },
     {NULL},
 };
 
