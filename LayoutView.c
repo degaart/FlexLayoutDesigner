@@ -96,6 +96,8 @@ static void PaintFlex(HDC hdc, WindowData* data, YGNodeRef flex)
 
 static void OnPaint(HWND hwnd, HDC hdc, PAINTSTRUCT* ps, WindowData* data)
 {
+    HBRUSH brush = GetSysColorBrush(COLOR_WINDOW);
+    FillRect(hdc, &ps->rcPaint, brush);
     PaintFlex(hdc, data, data->rootFlex);
 }
 
