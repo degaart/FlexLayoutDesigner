@@ -49,7 +49,7 @@ static void OnUpdateScroll(HWND hwnd)
     si.fMask = SIF_RANGE | SIF_PAGE;
     si.nPage = rc.bottom - rc.top;
     si.nMin = 0;
-    si.nMax = params.maxY + ((rc.bottom - rc.top) / 2);
+    si.nMax = params.maxY;
     SetScrollInfo(hwnd, SB_VERT, &si, TRUE);
 }
 
