@@ -161,6 +161,8 @@ static Property gProperties[] =
 {
     { "width", PROPERTY_TYPE_VALUE, VALUE_PROP(Width) },
     { "height", PROPERTY_TYPE_VALUE, VALUE_PROP(Height) },
+    { "min-width", PROPERTY_TYPE_VALUE, { .v = YGNodeStyleGetMinWidth }, { .v = { .point =  YGNodeStyleSetMinWidth, .percent = YGNodeStyleSetMinWidthPercent, .auto_ = NULL } } },
+    { "min-height", PROPERTY_TYPE_VALUE, { .v = YGNodeStyleGetMinHeight }, { .v = { .point =  YGNodeStyleSetMinHeight, .percent = YGNodeStyleSetMinHeightPercent, .auto_ = NULL } } },
     { "flex", PROPERTY_TYPE_FLOAT, FLOAT_PROP(Flex) },
     { "flex-grow", PROPERTY_TYPE_FLOAT, FLOAT_PROP(FlexGrow) },
     { "flex-shrink", PROPERTY_TYPE_FLOAT, FLOAT_PROP(FlexShrink) },
@@ -178,7 +180,7 @@ static Property gProperties[] =
     { "flex-wrap", PROPERTY_TYPE_WRAP, WRAP_PROP(FlexWrap) },
     { "overflow", PROPERTY_TYPE_OVERFLOW, OVERFLOW_PROP(Overflow) },
     { "display", PROPERTY_TYPE_DISPLAY, DISPLAY_PROP(Display) },
-    {NULL},
+    { NULL},
 };
 
 #define DUMP_FLEX(label, flex) \
