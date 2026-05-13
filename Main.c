@@ -1,12 +1,5 @@
 /*
- *
- * ┌──────────────────────┐ ┌─────────────────────────────────┐
- * │         Add          │ │                                 │
- * └──────────────────────┘ │                                 │
- * ┌──────────────────────┐ │                                 │
- * │    Generate Code     │ │                                 │
- * └──────────────────────┘ │                                 │
- * ┌─Layout───────────────┐ │                                 │
+ * ┌─Layout───────────────┐ ┌─────────────────────────────────┐
  * │ + root               │ │                                 │
  * │   + timerLabel       │ │        LAYOUT PREVIEW           │
  * │   + buttonContainer  │ │                                 │
@@ -44,8 +37,17 @@
 
 enum ButtonIDs
 {
-    ID_ADDBUTTON = 101,
-    ID_GENERATEBUTTON,
+    IDC_ADD_BUTTON = 101,
+    IDC_GENERATE_BUTTON,
+
+    IDM_FILE_NEW,
+    IDM_FILE_OPEN,
+    IDM_FILE_SAVE,
+    IDM_FILE_SAVE_AS,
+    IDM_FILE_GENERATE,
+    IDM_FILE_EXIT,
+
+    IDM_FLEX_ADD,
 };
 
 typedef struct AppState
@@ -691,7 +693,7 @@ static void OnCreate(HWND hwnd, AppState* appState)
         0, 0,
         300, 32,
         hwnd,
-        (HMENU)ID_ADDBUTTON,
+        (HMENU)IDC_ADD_BUTTON,
         appState->hInstance,
         0L);
 
@@ -702,7 +704,7 @@ static void OnCreate(HWND hwnd, AppState* appState)
         0, 32+10,
         300, 32,
         hwnd,
-        (HMENU)ID_GENERATEBUTTON,
+        (HMENU)IDC_GENERATE_BUTTON,
         appState->hInstance,
         0L);
 
@@ -833,10 +835,14 @@ static void OnCommand(AppState* appState, HWND hwnd, HWND hButton, unsigned butt
 {
     switch (buttonID)
     {
-    case ID_ADDBUTTON:
+    case IDM_FLEX_ADD:
+    case IDC_ADD_BUTTON:
         OnAdd(appState, hwnd, hButton);
         break;
-    case ID_GENERATEBUTTON:
+    case IDC_GENERATE_BUTTON:
+        break;
+    case IDM_FILE_EXIT:
+        DestroyWindow(hwnd);
         break;
     }
 }
@@ -1235,6 +1241,23 @@ static bool InitApplication(HINSTANCE hInstance)
 
 static bool InitInstance(HINSTANCE hInstance, INT nShowCmd, AppState* appState)
 {
+    HMENU hMenuBar = CreateMenu();
+
+    HMENU hFileMenu = CreatePopupMenu();
+    AppendMenu(hFileMenu, MF_STRING, IDM_FILE_NEW, "&New");
+    AppendMenu(hFileMenu, MF_STRING, IDM_FILE_OPEN, "&Open");
+    AppendMenu(hFileMenu, MF_STRING, IDM_FILE_SAVE, "&Save");
+    AppendMenu(hFileMenu, MF_STRING, IDM_FILE_SAVE_AS, "S&ave as...");
+    AppendMenu(hFileMenu, MF_SEPARATOR, 0, NULL);
+    AppendMenu(hFileMenu, MF_STRING, IDM_FILE_GENERATE, "&Generate code");
+    AppendMenu(hFileMenu, MF_SEPARATOR, 0, NULL);
+    AppendMenu(hFileMenu, MF_STRING, IDM_FILE_EXIT, "E&xit");
+    AppendMenu(hMenuBar, MF_POPUP, (UINT_PTR)hFileMenu, "&File");
+
+    HMENU hFlexMenu = CreatePopupMenu();
+    AppendMenu(hFlexMenu, MF_STRING, IDM_FLEX_ADD, "&Add child");
+    AppendMenu(hMenuBar, MF_POPUP, (UINT_PTR)hFlexMenu, "F&lex");
+            
     unsigned style = WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN;
 
     RECT rcWindow = {
@@ -1243,7 +1266,7 @@ static bool InitInstance(HINSTANCE hInstance, INT nShowCmd, AppState* appState)
         .right = 640,
         .bottom = 520,
     };
-    AdjustWindowRectEx(&rcWindow, style, FALSE, 0);
+    AdjustWindowRectEx(&rcWindow, style, TRUE, 0);
 
     HWND hwnd = CreateWindow(
         APPNAME,
@@ -1252,7 +1275,7 @@ static bool InitInstance(HINSTANCE hInstance, INT nShowCmd, AppState* appState)
         CW_USEDEFAULT, 0,
         rcWindow.right - rcWindow.left, rcWindow.bottom - rcWindow.top,
         NULL,
-        NULL,
+        hMenuBar,
         hInstance,
         appState);
     if (!hwnd)
