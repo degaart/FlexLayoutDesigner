@@ -6,7 +6,7 @@
 
 enum EdgeFloatViewNotifications
 {
-    EVVN_CHANGED = 300,
+    EFVN_CHANGED = 300,
 };
 
 typedef struct NMEDGEFLOATVIEW

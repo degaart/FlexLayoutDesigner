@@ -119,7 +119,7 @@ static void OnEditControlChange(EdgeFloatViewState* state, HWND hwnd, HWND hCont
     float value;
     if (!ParseFloat(buffer, &value))
     {
-        return;
+        value = NAN;
     }
 
     for (int i = EDGE_MIN; i < EDGE_MAX; i++)
@@ -127,7 +127,7 @@ static void OnEditControlChange(EdgeFloatViewState* state, HWND hwnd, HWND hCont
         if (state->controls[i].hControl == hControl)
         {
             NMEDGEFLOATVIEW nmevv = {0};
-            nmevv.hdr.code = EVVN_CHANGED;
+            nmevv.hdr.code = EFVN_CHANGED;
             nmevv.hdr.hwndFrom = hwnd;
             nmevv.hdr.idFrom = GetWindowLongPtr(hwnd, GWLP_ID);
             nmevv.edge = i;
@@ -213,7 +213,14 @@ void EdgeFloatView_SetValue(HWND hControl, YGEdge edge, float value)
     assert(state != NULL);
 
     char text[128];
-    snprintf(text, sizeof(text), "%0.f", value);
+    if (isnan(value))
+    {
+        strcpy(text, "");
+    }
+    else
+    {
+        snprintf(text, sizeof(text), "%0.f", value);
+    }
     SetWindowText(state->controls[edge].hControl, text);
 }
 

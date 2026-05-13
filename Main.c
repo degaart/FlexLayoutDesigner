@@ -23,6 +23,7 @@
  *
 */
 
+#include "EdgeFloatView.h"
 #include "EdgeValueView.h"
 #include "GroupBox.h"
 #include "LayoutView.h"
@@ -158,16 +159,17 @@ typedef struct Property
 
 static Property gProperties[] =
 {
-    {"width", PROPERTY_TYPE_VALUE, VALUE_PROP(Width) },
-    {"height", PROPERTY_TYPE_VALUE, VALUE_PROP(Height) },
+    { "width", PROPERTY_TYPE_VALUE, VALUE_PROP(Width) },
+    { "height", PROPERTY_TYPE_VALUE, VALUE_PROP(Height) },
     { "flex", PROPERTY_TYPE_FLOAT, FLOAT_PROP(Flex) },
-    {"flex-grow", PROPERTY_TYPE_FLOAT, FLOAT_PROP(FlexGrow) },
-    {"flex-shrink", PROPERTY_TYPE_FLOAT, FLOAT_PROP(FlexShrink) },
-    {"basis", PROPERTY_TYPE_VALUE, VALUE_PROP(FlexBasis) },
-    {"position", PROPERTY_TYPE_EDGE_VALUE, { .ev = YGNodeStyleGetPosition }, { .ev = { .point = YGNodeStyleSetPosition, .percent = YGNodeStyleSetPositionPercent, .auto_ = NULL } } },
-    {"flex-direction", PROPERTY_TYPE_DIRECTION, DIRECTION_PROP(FlexDirection) },
+    { "flex-grow", PROPERTY_TYPE_FLOAT, FLOAT_PROP(FlexGrow) },
+    { "flex-shrink", PROPERTY_TYPE_FLOAT, FLOAT_PROP(FlexShrink) },
+    { "basis", PROPERTY_TYPE_VALUE, VALUE_PROP(FlexBasis) },
+    { "position", PROPERTY_TYPE_EDGE_VALUE, { .ev = YGNodeStyleGetPosition }, { .ev = { .point = YGNodeStyleSetPosition, .percent = YGNodeStyleSetPositionPercent, .auto_ = NULL } } },
+    { "flex-direction", PROPERTY_TYPE_DIRECTION, DIRECTION_PROP(FlexDirection) },
     { "margin", PROPERTY_TYPE_EDGE_VALUE, EDGE_VALUE_PROP(Margin) },
     { "padding", PROPERTY_TYPE_EDGE_VALUE, { .ev = YGNodeStyleGetPadding },{ .ev = { .point = YGNodeStyleSetPadding, .percent = YGNodeStyleSetPaddingPercent, .auto_ = NULL } } },
+    { "border", PROPERTY_TYPE_EDGE_FLOAT, EDGE_FLOAT_PROP(Border) },
     { "justify-content", PROPERTY_TYPE_JUSTIFY, JUSTIFY_PROP(JustifyContent) },
     { "align-content", PROPERTY_TYPE_ALIGN, ALIGN_PROP(AlignContent) },
     { "align-items", PROPERTY_TYPE_ALIGN, ALIGN_PROP(AlignItems) },
@@ -205,6 +207,12 @@ static void InitProperties()
             for (int edge = YGEdgeLeft; edge <= YGEdgeBottom; edge++)
             {
                 prop->default_.ev[edge] = prop->getter.ev(node, edge);
+            }
+            break;
+        case PROPERTY_TYPE_EDGE_FLOAT:
+            for (int edge = YGEdgeLeft; edge <= YGEdgeBottom; edge++)
+            {
+                prop->default_.ef[edge] = prop->getter.ef(node, edge);
             }
             break;
         case PROPERTY_TYPE_JUSTIFY:
@@ -334,6 +342,10 @@ static void CreateProperties(AppState* appState, HWND hParent)
             prop->hControl = EdgeValueView_Create(appState->hInstance, hParent, 0, 0, 32, 32);
             YGNodeStyleSetHeight(prop->controlFlex, EdgeValueView_GetHeight(prop->hControl));
             break;
+        case PROPERTY_TYPE_EDGE_FLOAT:
+            prop->hControl = EdgeFloatView_Create(appState->hInstance, hParent, 0, 0, 32, 32);
+            YGNodeStyleSetHeight(prop->controlFlex, EdgeFloatView_GetHeight(prop->hControl));
+            break;
         case PROPERTY_TYPE_ALIGN:
         case PROPERTY_TYPE_POSITION:
         case PROPERTY_TYPE_DIRECTION:
@@ -381,10 +393,16 @@ static void CreateProperties(AppState* appState, HWND hParent)
             ValueView_Setvalue(prop->hControl, prop->default_.v);
             break;
         case PROPERTY_TYPE_EDGE_VALUE:
-            EdgeValueView_SetValue(prop->hControl, YGEdgeLeft, prop->default_.ev[YGEdgeLeft]);
-            EdgeValueView_SetValue(prop->hControl, YGEdgeTop, prop->default_.ev[YGEdgeTop]);
-            EdgeValueView_SetValue(prop->hControl, YGEdgeRight, prop->default_.ev[YGEdgeRight]);
-            EdgeValueView_SetValue(prop->hControl, YGEdgeBottom, prop->default_.ev[YGEdgeBottom]);
+            for (int i = YGEdgeLeft; i <= YGEdgeBottom; i++)
+            {
+                EdgeValueView_SetValue(prop->hControl, i, prop->default_.ev[i]);
+            }
+            break;
+        case PROPERTY_TYPE_EDGE_FLOAT:
+            for (int i = YGEdgeLeft; i <= YGEdgeBottom; i++)
+            {
+                EdgeFloatView_SetValue(prop->hControl, i, prop->default_.ef[i]);
+            }
             break;
         case PROPERTY_TYPE_ALIGN:
             ComboBox_AddString(prop->hControl, "AUTO");
@@ -487,17 +505,33 @@ static void DisplayProperties(AppState* appState, YGNodeConstRef item)
         case PROPERTY_TYPE_EDGE_VALUE:
             if (item)
             {
-                EdgeValueView_SetValue(prop->hControl, YGEdgeLeft, prop->getter.ev(item, YGEdgeLeft));
-                EdgeValueView_SetValue(prop->hControl, YGEdgeRight, prop->getter.ev(item, YGEdgeRight));
-                EdgeValueView_SetValue(prop->hControl, YGEdgeTop, prop->getter.ev(item, YGEdgeTop));
-                EdgeValueView_SetValue(prop->hControl, YGEdgeBottom, prop->getter.ev(item, YGEdgeBottom));
+                for (int i = YGEdgeLeft; i <= YGEdgeBottom; i++)
+                {
+                    EdgeValueView_SetValue(prop->hControl, i, prop->getter.ev(item, i));
+                }
             }
             else
             {
-                EdgeValueView_SetValue(prop->hControl, YGEdgeLeft, prop->default_.ev[YGEdgeLeft]);
-                EdgeValueView_SetValue(prop->hControl, YGEdgeRight, prop->default_.ev[YGEdgeRight]);
-                EdgeValueView_SetValue(prop->hControl, YGEdgeTop, prop->default_.ev[YGEdgeTop]);
-                EdgeValueView_SetValue(prop->hControl, YGEdgeBottom, prop->default_.ev[YGEdgeBottom]);
+                for (int i = YGEdgeLeft; i <= YGEdgeBottom; i++)
+                {
+                    EdgeValueView_SetValue(prop->hControl, i, prop->default_.ev[i]);
+                }
+            }
+            break;
+        case PROPERTY_TYPE_EDGE_FLOAT:
+            if (item)
+            {
+                for (int i = YGEdgeLeft; i <= YGEdgeBottom; i++)
+                {
+                    EdgeFloatView_SetValue(prop->hControl, i, prop->getter.ef(item, i));
+                }
+            }
+            else
+            {
+                for (int i = YGEdgeLeft; i <= YGEdgeBottom; i++)
+                {
+                    EdgeFloatView_SetValue(prop->hControl, i, prop->default_.ef[i]);
+                }
             }
             break;
         case PROPERTY_TYPE_ALIGN:
@@ -915,6 +949,34 @@ void OnEdgeValueViewChanged(AppState* appState, HWND hwnd, HWND hControl, YGEdge
     }
 }
 
+void OnEdgeFloatViewChanged(AppState* appState, HWND hwnd, HWND hControl, YGEdge edge, float value)
+{
+    if (appState->blockUpdates)
+    {
+        return;
+    }
+
+    YGNodeRef node = GetSelectedNode(appState->hLayoutTree, NULL);
+    if (!node)
+    {
+        return;
+    }
+    for (Property* prop = gProperties; prop->name; prop++)
+    {
+        if (prop->hControl == hControl)
+        {
+            assert(prop->type == PROPERTY_TYPE_EDGE_FLOAT);
+            prop->setter.ef(node, edge, value);
+
+            RECT rc;
+            GetClientRect(hwnd, &rc);
+            YGNodeCalculateLayout(appState->rootFlex, YGUndefined, YGUndefined, YGDirectionLTR);
+            InvalidateRect(appState->hLayoutView, NULL, TRUE);
+            break;
+        }
+    }
+}
+
 static void OnNotify(AppState* appState, HWND hwnd, NMHDR* nmhdr)
 {
     switch (nmhdr->code)
@@ -935,6 +997,12 @@ static void OnNotify(AppState* appState, HWND hwnd, NMHDR* nmhdr)
         {
             NMEDGEVALUEVIEW* nm = (NMEDGEVALUEVIEW*)nmhdr;
             OnEdgeValueViewChanged(appState, hwnd, nm->hdr.hwndFrom, nm->edge, nm->value);
+        }
+        break;
+    case EFVN_CHANGED:
+        {
+            NMEDGEFLOATVIEW* nm = (NMEDGEFLOATVIEW*)nmhdr;
+            OnEdgeFloatViewChanged(appState, hwnd, nm->hdr.hwndFrom, nm->edge, nm->value);
         }
         break;
     }
@@ -1149,6 +1217,11 @@ static bool InitApplication(HINSTANCE hInstance)
     }
 
     if (!EdgeValueView_Init(hInstance))
+    {
+        return false;
+    }
+
+    if (!EdgeFloatView_Init(hInstance))
     {
         return false;
     }
