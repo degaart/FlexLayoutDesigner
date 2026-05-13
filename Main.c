@@ -163,6 +163,8 @@ static Property gProperties[] =
     { "height", PROPERTY_TYPE_VALUE, VALUE_PROP(Height) },
     { "min-width", PROPERTY_TYPE_VALUE, { .v = YGNodeStyleGetMinWidth }, { .v = { .point =  YGNodeStyleSetMinWidth, .percent = YGNodeStyleSetMinWidthPercent, .auto_ = NULL } } },
     { "min-height", PROPERTY_TYPE_VALUE, { .v = YGNodeStyleGetMinHeight }, { .v = { .point =  YGNodeStyleSetMinHeight, .percent = YGNodeStyleSetMinHeightPercent, .auto_ = NULL } } },
+    { "max-width", PROPERTY_TYPE_VALUE, { .v = YGNodeStyleGetMaxWidth }, { .v = { .point =  YGNodeStyleSetMaxWidth, .percent = YGNodeStyleSetMaxWidthPercent, .auto_ = NULL } } },
+    { "max-height", PROPERTY_TYPE_VALUE, { .v = YGNodeStyleGetMaxHeight }, { .v = { .point =  YGNodeStyleSetMaxHeight, .percent = YGNodeStyleSetMaxHeightPercent, .auto_ = NULL } } },
     { "flex", PROPERTY_TYPE_FLOAT, FLOAT_PROP(Flex) },
     { "flex-grow", PROPERTY_TYPE_FLOAT, FLOAT_PROP(FlexGrow) },
     { "flex-shrink", PROPERTY_TYPE_FLOAT, FLOAT_PROP(FlexShrink) },
