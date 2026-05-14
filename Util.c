@@ -69,7 +69,7 @@ void DumpFlex(const char* title, YGNodeRef flex)
     DumpSingleFlex(flex, 0);
 }
 
-YGNodeRef CreateFlex(float width, float height, const char* name, HWND hWnd)
+YGNodeRef CreateFlex(float width, float height, HWND hWnd)
 {
     YGNodeRef node = YGNodeNew();
     if (!isnan(width))
@@ -81,13 +81,9 @@ YGNodeRef CreateFlex(float width, float height, const char* name, HWND hWnd)
         YGNodeStyleSetHeight(node, height);
     }
 
-    if (name || hWnd)
+    if (hWnd)
     {
         FlexData* data = calloc(1, sizeof(FlexData));
-        if (name)
-        {
-            strcpy_s(data->label, sizeof(data->label), name);
-        }
         data->hwnd = hWnd;
         YGNodeSetContext(node, data);
     }

@@ -48,6 +48,7 @@ enum ButtonIDs
     IDM_FILE_EXIT,
 
     IDM_FLEX_ADD,
+    IDM_FLEX_REMOVE,
 };
 
 typedef struct AppState
@@ -808,6 +809,24 @@ static YGNodeRef CreateNode(YGNodeRef parent, int index)
     return node;
 }
 
+static void DestroyNode(YGNodeRef node)
+{
+    int childCount = YGNodeGetChildCount(node);
+    for (int i = 0; i < childCount; i++)
+    {
+        YGNodeRef child = YGNodeGetChild(node, i);
+        DestroyNode(child);
+    }
+
+    NodeContext* ctx = YGNodeGetContext(node);
+    if (ctx)
+    {
+        free(ctx);
+    }
+
+    YGNodeFree(node);
+}
+
 static void OnCreate(HWND hwnd, AppState* appState)
 {
     SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)appState);
@@ -978,9 +997,6 @@ static void OnAdd(AppState* appState, HWND hwnd, HWND hButton)
     }
 
     YGNodeRef node = CreateNode(parentNode, appState->index++);
-
-    RECT rc;
-    GetClientRect(hwnd, &rc);
     YGNodeCalculateLayout(appState->rootFlex, YGUndefined, YGUndefined, YGDirectionLTR);
 
     NodeContext* ctx = YGNodeGetContext(node);
@@ -991,6 +1007,28 @@ static void OnAdd(AppState* appState, HWND hwnd, HWND hButton)
     ctx->hTreeItem = hTreeItem;
     ctx->hTree = appState->hLayoutTree;
 
+    InvalidateRect(appState->hLayoutView, NULL, TRUE);
+}
+
+static void OnRemove(AppState* appState, HWND hwnd)
+{
+    HTREEITEM treeItem;
+    YGNodeRef node = GetSelectedNode(appState->hLayoutTree, &treeItem);
+    if (!node)
+    {
+        MessageBox(hwnd, "No selected node", "Error", MB_OK|MB_ICONERROR);
+        return;
+    }
+    if (!TreeView_GetParent(appState->hLayoutTree, treeItem))
+    {
+        MessageBox(hwnd, "Cannot remove root node", "Error", MB_OK|MB_ICONERROR);
+        return;
+    }
+
+    DestroyNode(node);
+    TreeView_DeleteItem(appState->hLayoutTree, treeItem);
+
+    YGNodeCalculateLayout(appState->rootFlex, YGUndefined, YGUndefined, YGDirectionLTR);
     InvalidateRect(appState->hLayoutView, NULL, TRUE);
 }
 
@@ -1264,6 +1302,9 @@ static void OnCommand(AppState* appState, HWND hwnd, HWND hButton, unsigned butt
     {
     case IDM_FLEX_ADD:
         OnAdd(appState, hwnd, hButton);
+        break;
+    case IDM_FLEX_REMOVE:
+        OnRemove(appState, hwnd);
         break;
     case IDM_FILE_GENERATE:
         OnGenerate(appState, hwnd);
@@ -1691,6 +1732,7 @@ static bool InitInstance(HINSTANCE hInstance, INT nShowCmd, AppState* appState)
 
     HMENU hFlexMenu = CreatePopupMenu();
     AppendMenu(hFlexMenu, MF_STRING, IDM_FLEX_ADD, "&Add child");
+    AppendMenu(hFlexMenu, MF_STRING, IDM_FLEX_REMOVE, "&Remove");
     AppendMenu(hMenuBar, MF_POPUP, (UINT_PTR)hFlexMenu, "F&lex");
             
     unsigned style = WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN;

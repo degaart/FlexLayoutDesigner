@@ -47,11 +47,6 @@ static void PaintFlex(HDC hdc, WindowData* data, YGNodeRef flex, float originX, 
         selRect->top = rc.top;
         selRect->right = rc.right;
         selRect->bottom = rc.bottom;
-        //HPEN pen = CreatePen(PS_DOT, 1, ctx->textColor);
-        //SelectObject(hdc, pen);
-        //SelectObject(hdc, brush);
-        //Rectangle(hdc, rc.left, rc.top, rc.right, rc.bottom);
-        //DeleteObject(pen);
     }
     DeleteObject(brush);
 

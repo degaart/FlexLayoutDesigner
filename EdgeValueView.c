@@ -30,15 +30,13 @@ static void OnCreate(HWND hwnd)
     EdgeValueViewState* state = calloc(1, sizeof(EdgeValueViewState));
     state->signature = 0xDEADBEEF;
 
-    state->flex = CreateFlex(32.0f, NAN, NULL, NULL);
+    state->flex = CreateFlex(32.0f, NAN, NULL);
     YGNodeStyleSetFlexDirection(state->flex, YGFlexDirectionColumn);
     SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG)state);
 
-    char flexLabel[64];
     for (int i = EDGE_MIN; i < EDGE_MAX; i++)
     {
-        snprintf(flexLabel, sizeof(flexLabel), "controls[%d].flex", i);
-        state->controls[i].flex = CreateFlex(NAN, 22.0f, flexLabel, NULL);
+        state->controls[i].flex = CreateFlex(NAN, 22.0f, NULL);
         YGNodeStyleSetFlexDirection(state->controls[i].flex, YGFlexDirectionRow);
         YGNodeStyleSetMargin(state->controls[i].flex, YGEdgeTop, 2.0f);
         YGNodeInsertChild(state->flex, state->controls[i].flex, YGNodeGetChildCount(state->flex));
@@ -74,14 +72,12 @@ static void OnCreate(HWND hwnd)
             hInstance,
             0L);
 
-        snprintf(flexLabel, sizeof(flexLabel), "controls[%d].labelFlex", i);
-        state->controls[i].labelFlex = CreateFlex(45.0f, NAN, flexLabel, state->controls[i].hLabel);
+        state->controls[i].labelFlex = CreateFlex(45.0f, NAN, state->controls[i].hLabel);
         YGNodeInsertChild(state->controls[i].flex, state->controls[i].labelFlex, YGNodeGetChildCount(state->controls[i].flex));
 
         state->controls[i].hControl = ValueView_Create(hInstance, hwnd, 0, 0, 32, 32);
 
-        snprintf(flexLabel, sizeof(flexLabel), "controls[%d].controlFlex", i);
-        state->controls[i].controlFlex = CreateFlex(NAN, 22.0f, flexLabel, state->controls[i].hControl);
+        state->controls[i].controlFlex = CreateFlex(NAN, 22.0f, state->controls[i].hControl);
         YGNodeStyleSetFlexGrow(state->controls[i].controlFlex, 1.0f);
         YGNodeInsertChild(state->controls[i].flex, state->controls[i].controlFlex, YGNodeGetChildCount(state->controls[i].flex));
     }

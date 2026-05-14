@@ -15,11 +15,10 @@ void DumpFlex(const char* title, YGNodeRef flex);
 
 typedef struct FlexData
 {
-    char label[64];
     HWND hwnd;
 } FlexData;
 
-YGNodeRef CreateFlex(float width, float height, const char* name, HWND hWnd);
+YGNodeRef CreateFlex(float width, float height, HWND hWnd);
 void DestroyFlex(YGNodeRef flex);
 void LayoutFlex(YGNodeRef flex, float originX, float originY);
 void SetFlexHWND(YGNodeRef flex, HWND hwnd);
