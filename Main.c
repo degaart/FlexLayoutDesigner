@@ -953,6 +953,18 @@ static void OnSize(AppState* appState, HWND hwnd, WORD width, WORD height)
     YGNodeStyleSetHeight(appState->editorFlex, height);
     YGNodeCalculateLayout(appState->editorFlex, YGUndefined, YGUndefined, YGDirectionLTR);
     LayoutFlex(appState->editorFlex, 0.0f, 0.0f);
+
+    RECT rc;
+    GetClientRect(appState->hLayoutView, &rc);
+    YGNodeStyleSetWidth(appState->rootFlex, rc.right - rc.left);
+    YGNodeStyleSetHeight(appState->rootFlex, rc.bottom - rc.top);
+    YGNodeCalculateLayout(appState->rootFlex, YGUndefined, YGUndefined, YGDirectionLTR);
+
+    YGNodeRef node = GetSelectedNode(appState->hLayoutTree, NULL);
+    if (node)
+    {
+        DisplayProperties(appState, node);
+    }
 }
 
 static void OnAdd(AppState* appState, HWND hwnd, HWND hButton)

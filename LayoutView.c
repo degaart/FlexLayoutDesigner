@@ -22,7 +22,7 @@ typedef struct WindowData
     YGNodeRef selectedFlex;
 } WindowData;
 
-static void PaintFlex(HDC hdc, WindowData* data, YGNodeRef flex, float originX, float originY)
+static void PaintFlex(HDC hdc, WindowData* data, YGNodeRef flex, float originX, float originY, RECT* selRect)
 {
     NodeContext* ctx = YGNodeGetContext(flex);
     assert(ctx != NULL);
@@ -39,17 +39,19 @@ static void PaintFlex(HDC hdc, WindowData* data, YGNodeRef flex, float originX, 
     rc.bottom = roundf(top + height);
 
     HBRUSH brush = CreateSolidBrush(ctx->color);
+    FillRect(hdc, &rc, brush);
+
     if (flex == data->selectedFlex)
     {
-        HPEN pen = CreatePen(PS_SOLID, 1, ctx->textColor);
-        SelectObject(hdc, pen);
-        SelectObject(hdc, brush);
-        Rectangle(hdc, rc.left, rc.top, rc.right, rc.bottom);
-        DeleteObject(pen);
-    }
-    else
-    {
-        FillRect(hdc, &rc, brush);
+        selRect->left = rc.left;
+        selRect->top = rc.top;
+        selRect->right = rc.right;
+        selRect->bottom = rc.bottom;
+        //HPEN pen = CreatePen(PS_DOT, 1, ctx->textColor);
+        //SelectObject(hdc, pen);
+        //SelectObject(hdc, brush);
+        //Rectangle(hdc, rc.left, rc.top, rc.right, rc.bottom);
+        //DeleteObject(pen);
     }
     DeleteObject(brush);
 
@@ -78,7 +80,7 @@ static void PaintFlex(HDC hdc, WindowData* data, YGNodeRef flex, float originX, 
     unsigned children = YGNodeGetChildCount(flex);
     for (unsigned i = 0; i < children; i++)
     {
-        PaintFlex(hdc, data, YGNodeGetChild(flex, i), rc.left, rc.top);
+        PaintFlex(hdc, data, YGNodeGetChild(flex, i), rc.left, rc.top, selRect);
     }
 }
 
@@ -86,7 +88,21 @@ static void OnPaint(HWND hwnd, HDC hdc, PAINTSTRUCT* ps, WindowData* data)
 {
     HBRUSH brush = GetSysColorBrush(COLOR_WINDOW);
     FillRect(hdc, &ps->rcPaint, brush);
-    PaintFlex(hdc, data, data->rootFlex, 0.0f, 0.0f);
+
+    RECT rcSel = {0};
+    PaintFlex(hdc, data, data->rootFlex, 0.0f, 0.0f, &rcSel);
+
+    if (rcSel.right - rcSel.left > 0 && rcSel.bottom - rcSel.top > 0)
+    {
+        SetROP2(hdc, R2_XORPEN);
+        HPEN pen = CreatePen(PS_DOT, 1, 0x00FFFFFF);
+        brush = GetStockObject(NULL_BRUSH);
+        SelectObject(hdc, pen);
+        SelectObject(hdc, brush);
+        Rectangle(hdc, rcSel.left, rcSel.top, rcSel.right, rcSel.bottom);
+        DeleteObject(pen);
+    }
+
 }
 
 static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
