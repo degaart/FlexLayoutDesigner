@@ -149,14 +149,6 @@ void LayoutFlex(YGNodeRef flex, float originX, float originY)
                 SWP_NOZORDER);
         }
 
-        if (data && data->label[0])
-        {
-            TRACE("%s: left=%d top=%d width=%d height=%d",
-                data->label,
-                (int)roundf(left), (int)roundf(top),
-                (int)roundf(YGNodeLayoutGetWidth(node)), (int)roundf(YGNodeLayoutGetHeight(node)));
-        }
-
         LayoutFlex(node, left, top);
     }
 }
@@ -169,5 +161,42 @@ uint32_t GenerateColor(int index)
     }
     return ((uint32_t)index * 2654435761u) >> 8;
 }
+
+int fcomp(float a, float b)
+{
+    if (isnan(a))
+    {
+        if (isnan(b))
+        {
+            return 0;
+        }
+        return -1;
+    }
+    else if (isnan(b))
+    {
+        return 1;
+    }
+
+    float diff = a - b;
+    if (fabsf(diff) < 1e-9)
+    {
+        return 0;
+    }
+    else if (diff > 0.0f)
+    {
+        return 1;
+    }
+    return -1;
+}
+
+int vcomp(YGValue a, YGValue b)
+{
+    if (a.unit != b.unit)
+    {
+        return a.unit - b.unit;
+    }
+    return fcomp(a.value, b.value);
+}
+
 
 

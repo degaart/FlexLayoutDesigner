@@ -11,12 +11,17 @@ void __trace(const char* file, int line, const char* format, ...)
     PathStripPath(filename);
 
     char buffer[1024];
-    snprintf(buffer, 32, "[%s:%d] ", filename, line);
+    int curLen = snprintf(buffer, 32, "[%s:%d] ", filename, line);
     free(filename);
+
+    if (curLen < 0 || curLen > sizeof(buffer) - 1)
+    {
+        return;
+    }
 
     va_list args;
     va_start(args, format);
-    vsnprintf(buffer, sizeof(buffer) - strlen(buffer) - 2, format, args);
+    vsnprintf(buffer+curLen, sizeof(buffer) - curLen - 2, format, args);
     va_end(args);
 
     strcat(buffer, "\r\n");

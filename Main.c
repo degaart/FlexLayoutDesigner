@@ -38,9 +38,6 @@
 
 enum ButtonIDs
 {
-    IDC_ADD_BUTTON = 101,
-    IDC_GENERATE_BUTTON,
-
     IDM_FILE_NEW,
     IDM_FILE_OPEN,
     IDM_FILE_SAVE,
@@ -143,6 +140,7 @@ typedef struct Property
     const char* name;
     PropertyType type;
     PropertyGetter getter;
+    const char* setterName;
     PropertySetter setter;
     PropertyValue default_;
     HWND hLabel;
@@ -152,17 +150,17 @@ typedef struct Property
     YGNodeRef controlFlex;
 } Property;
 
-#define VALUE_PROP(p)       { .v = YGNodeStyleGet ## p },   { .v = { .point = YGNodeStyleSet ## p, .percent = YGNodeStyleSet ## p ## Percent, .auto_ = YGNodeStyleSet ## p ## Auto } } 
-#define FLOAT_PROP(p)       { .f = YGNodeStyleGet ## p },   { .f = YGNodeStyleSet ## p }
-#define DIRECTION_PROP(p)   { .d = YGNodeStyleGet ## p },   { .d = YGNodeStyleSet ## p }
-#define EDGE_VALUE_PROP(p)  { .ev = YGNodeStyleGet ## p },  { .ev = { .point = YGNodeStyleSet ## p, .percent = YGNodeStyleSet ## p ## Percent, .auto_ = YGNodeStyleSet ## p ## Auto } }
-#define EDGE_FLOAT_PROP(p)  { .ef = YGNodeStyleGet ## p },  { .ef = YGNodeStyleSet ## p }
-#define JUSTIFY_PROP(p)     { .j = YGNodeStyleGet ## p },   { .j = YGNodeStyleSet ## p }
-#define ALIGN_PROP(p)       { .a = YGNodeStyleGet ## p },   { .a = YGNodeStyleSet ## p }
-#define POSITION_PROP(P)    { .p = YGNodeStyleGet ## P },   { .p = YGNodeStyleSet ## P }
-#define WRAP_PROP(p)        { .w = YGNodeStyleGet ## p },   { .w = YGNodeStyleSet ## p }
-#define OVERFLOW_PROP(p)    { .o = YGNodeStyleGet ## p },   { .o = YGNodeStyleSet ## p }
-#define DISPLAY_PROP(p)     { .disp = YGNodeStyleGet ## p },{ .disp = YGNodeStyleSet ## p }
+#define VALUE_PROP(P)       { .v = YGNodeStyleGet    ## P }, "YGNodeStyleSet" #P, { .v = { .point = YGNodeStyleSet ## P, .percent = YGNodeStyleSet ## P ## Percent, .auto_ = YGNodeStyleSet ## P ## Auto } } 
+#define FLOAT_PROP(P)       { .f = YGNodeStyleGet    ## P }, "YGNodeStyleSet" #P, { .f = YGNodeStyleSet ## P }
+#define DIRECTION_PROP(P)   { .d = YGNodeStyleGet    ## P }, "YGNodeStyleSet" #P, { .d = YGNodeStyleSet ## P }
+#define EDGE_VALUE_PROP(P)  { .ev = YGNodeStyleGet   ## P }, "YGNodeStyleSet" #P, { .ev = { .point = YGNodeStyleSet ## P, .percent = YGNodeStyleSet ## P ## Percent, .auto_ = YGNodeStyleSet ## P ## Auto } }
+#define EDGE_FLOAT_PROP(P)  { .ef = YGNodeStyleGet   ## P }, "YGNodeStyleSet" #P, { .ef = YGNodeStyleSet ## P }
+#define JUSTIFY_PROP(P)     { .j = YGNodeStyleGet    ## P }, "YGNodeStyleSet" #P, { .j = YGNodeStyleSet ## P }
+#define ALIGN_PROP(P)       { .a = YGNodeStyleGet    ## P }, "YGNodeStyleSet" #P, { .a = YGNodeStyleSet ## P }
+#define POSITION_PROP(P)    { .p = YGNodeStyleGet    ## P }, "YGNodeStyleSet" #P, { .p = YGNodeStyleSet ## P }
+#define WRAP_PROP(P)        { .w = YGNodeStyleGet    ## P }, "YGNodeStyleSet" #P, { .w = YGNodeStyleSet ## P }
+#define OVERFLOW_PROP(P)    { .o = YGNodeStyleGet    ## P }, "YGNodeStyleSet" #P, { .o = YGNodeStyleSet ## P }
+#define DISPLAY_PROP(P)     { .disp = YGNodeStyleGet ## P }, "YGNodeStyleSet" #P, { .disp = YGNodeStyleSet ## P }
 
 void NodeGetContext(YGNodeConstRef, char*, size_t);
 void NodeSetContext(YGNodeRef, const char*);
@@ -171,18 +169,18 @@ static Property gProperties[] =
 {
     { "width", PROPERTY_TYPE_VALUE, VALUE_PROP(Width) },
     { "height", PROPERTY_TYPE_VALUE, VALUE_PROP(Height) },
-    { "min-width", PROPERTY_TYPE_VALUE, { .v = YGNodeStyleGetMinWidth }, { .v = { .point =  YGNodeStyleSetMinWidth, .percent = YGNodeStyleSetMinWidthPercent, .auto_ = NULL } } },
-    { "min-height", PROPERTY_TYPE_VALUE, { .v = YGNodeStyleGetMinHeight }, { .v = { .point =  YGNodeStyleSetMinHeight, .percent = YGNodeStyleSetMinHeightPercent, .auto_ = NULL } } },
-    { "max-width", PROPERTY_TYPE_VALUE, { .v = YGNodeStyleGetMaxWidth }, { .v = { .point =  YGNodeStyleSetMaxWidth, .percent = YGNodeStyleSetMaxWidthPercent, .auto_ = NULL } } },
-    { "max-height", PROPERTY_TYPE_VALUE, { .v = YGNodeStyleGetMaxHeight }, { .v = { .point =  YGNodeStyleSetMaxHeight, .percent = YGNodeStyleSetMaxHeightPercent, .auto_ = NULL } } },
+    { "min-width", PROPERTY_TYPE_VALUE, { .v = YGNodeStyleGetMinWidth }, "YGNodeStyleGetMinWidth", { .v = { .point =  YGNodeStyleSetMinWidth, .percent = YGNodeStyleSetMinWidthPercent, .auto_ = NULL } } },
+    { "min-height", PROPERTY_TYPE_VALUE, { .v = YGNodeStyleGetMinHeight }, "YGNodeStyleGetMinHeight", { .v = { .point =  YGNodeStyleSetMinHeight, .percent = YGNodeStyleSetMinHeightPercent, .auto_ = NULL } } },
+    { "max-width", PROPERTY_TYPE_VALUE, { .v = YGNodeStyleGetMaxWidth }, "YGNodeStyleGetMaxWidth", { .v = { .point =  YGNodeStyleSetMaxWidth, .percent = YGNodeStyleSetMaxWidthPercent, .auto_ = NULL } } },
+    { "max-height", PROPERTY_TYPE_VALUE, { .v = YGNodeStyleGetMaxHeight }, "YGNodeStyleGetMaxHeight", { .v = { .point =  YGNodeStyleSetMaxHeight, .percent = YGNodeStyleSetMaxHeightPercent, .auto_ = NULL } } },
     { "flex", PROPERTY_TYPE_FLOAT, FLOAT_PROP(Flex) },
     { "flex-grow", PROPERTY_TYPE_FLOAT, FLOAT_PROP(FlexGrow) },
     { "flex-shrink", PROPERTY_TYPE_FLOAT, FLOAT_PROP(FlexShrink) },
     { "basis", PROPERTY_TYPE_VALUE, VALUE_PROP(FlexBasis) },
-    { "position", PROPERTY_TYPE_EDGE_VALUE, { .ev = YGNodeStyleGetPosition }, { .ev = { .point = YGNodeStyleSetPosition, .percent = YGNodeStyleSetPositionPercent, .auto_ = NULL } } },
+    { "position", PROPERTY_TYPE_EDGE_VALUE, { .ev = YGNodeStyleGetPosition }, "YGNodeStyleGetPosition", { .ev = { .point = YGNodeStyleSetPosition, .percent = YGNodeStyleSetPositionPercent, .auto_ = NULL } } },
     { "flex-direction", PROPERTY_TYPE_DIRECTION, DIRECTION_PROP(FlexDirection) },
     { "margin", PROPERTY_TYPE_EDGE_VALUE, EDGE_VALUE_PROP(Margin) },
-    { "padding", PROPERTY_TYPE_EDGE_VALUE, { .ev = YGNodeStyleGetPadding },{ .ev = { .point = YGNodeStyleSetPadding, .percent = YGNodeStyleSetPaddingPercent, .auto_ = NULL } } },
+    { "padding", PROPERTY_TYPE_EDGE_VALUE, { .ev = YGNodeStyleGetPadding }, "YGNodeStyleGetPadding", { .ev = { .point = YGNodeStyleSetPadding, .percent = YGNodeStyleSetPaddingPercent, .auto_ = NULL } } },
     { "border", PROPERTY_TYPE_EDGE_FLOAT, EDGE_FLOAT_PROP(Border) },
     { "justify-content", PROPERTY_TYPE_JUSTIFY, JUSTIFY_PROP(JustifyContent) },
     { "align-content", PROPERTY_TYPE_ALIGN, ALIGN_PROP(AlignContent) },
@@ -193,7 +191,7 @@ static Property gProperties[] =
     { "overflow", PROPERTY_TYPE_OVERFLOW, OVERFLOW_PROP(Overflow) },
     { "display", PROPERTY_TYPE_DISPLAY, DISPLAY_PROP(Display) },
     { "aspect-ratio", PROPERTY_TYPE_FLOAT, FLOAT_PROP(AspectRatio) },
-    { "context", PROPERTY_TYPE_STRING, { .str = NodeGetContext }, { .str = NodeSetContext } },
+    { "context", PROPERTY_TYPE_STRING, { .str = NodeGetContext }, "NodeGetContext",  { .str = NodeSetContext } },
     { NULL },
 };
 
@@ -307,7 +305,7 @@ static void Layout(YGNodeRef root, float originX, float originY)
             float height = YGNodeLayoutGetHeight(node);
             if (!strcmp(className, "ComboBox"))
             {
-                height = 128.0f;
+                height = 200.0f;
             }
 
             SetWindowPos(hwnd, NULL,
@@ -402,9 +400,9 @@ static void CreateProperties(AppState* appState, HWND hParent)
             prop->hControl = CreateWindow(
                 "COMBOBOX",
                 text,
-                WS_CHILD|WS_VISIBLE|WS_CLIPSIBLINGS|CBS_DROPDOWNLIST|CBS_HASSTRINGS,
+                WS_CHILD|WS_VISIBLE|WS_CLIPSIBLINGS|CBS_DROPDOWNLIST|CBS_HASSTRINGS|CBS_DISABLENOSCROLL,
                 0, 0,
-                32, 32,
+                32, 200,
                 hParent,
                 NULL,
                 appState->hInstance,
@@ -464,25 +462,26 @@ static void CreateProperties(AppState* appState, HWND hParent)
             break;
         case PROPERTY_TYPE_ALIGN:
             ComboBox_AddString(prop->hControl, "AUTO");
-            ComboBox_AddString(prop->hControl, "STRETCH");
+            ComboBox_AddString(prop->hControl, "FLEX_START");
             ComboBox_AddString(prop->hControl, "CENTER");
-            ComboBox_AddString(prop->hControl, "START");
-            ComboBox_AddString(prop->hControl, "END");
+            ComboBox_AddString(prop->hControl, "FLEX_END");
+            ComboBox_AddString(prop->hControl, "STRETCH");
+            ComboBox_AddString(prop->hControl, "BASELINE");
             ComboBox_AddString(prop->hControl, "SPACE_BETWEEN");
             ComboBox_AddString(prop->hControl, "SPACE_AROUND");
-            ComboBox_AddString(prop->hControl, "SPACE_EVENLY");
             ComboBox_SetCurSel(prop->hControl, prop->default_.a);
             break;
         case PROPERTY_TYPE_POSITION:
+            ComboBox_AddString(prop->hControl, "STATIC");
             ComboBox_AddString(prop->hControl, "RELATIVE");
             ComboBox_AddString(prop->hControl, "ABSOLUTE");
             ComboBox_SetCurSel(prop->hControl, prop->default_.p);
             break;
         case PROPERTY_TYPE_DIRECTION:
-            ComboBox_AddString(prop->hControl, "Column");
-            ComboBox_AddString(prop->hControl, "ColumnReverse");
-            ComboBox_AddString(prop->hControl, "Row");
-            ComboBox_AddString(prop->hControl, "RowReverse");
+            ComboBox_AddString(prop->hControl, "COLUMN");
+            ComboBox_AddString(prop->hControl, "COLUMN_REVERSE");
+            ComboBox_AddString(prop->hControl, "ROW");
+            ComboBox_AddString(prop->hControl, "ROW_REVERSE");
             ComboBox_SetCurSel(prop->hControl, prop->default_.d);
             break;
         case PROPERTY_TYPE_WRAP:
@@ -882,12 +881,252 @@ static void OnAdd(AppState* appState, HWND hwnd, HWND hButton)
     InvalidateRect(appState->hLayoutView, NULL, TRUE);
 }
 
+static void GenerateFlex(YGNodeRef flex)
+{
+    assert(flex != NULL);
+
+    NodeContext* ctx = YGNodeGetContext(flex);
+    assert(ctx != NULL);
+
+    for (Property* prop = gProperties; prop->name; prop++)
+    {
+        switch (prop->type)
+        {
+        case PROPERTY_TYPE_FLOAT:
+        {
+            float value = prop->getter.f(flex);
+            if (fcomp(value, prop->default_.f))
+            {
+                TRACE("%s(%s, %0.f);", prop->setterName, ctx->label, value);
+            }
+            break;
+        }
+        case PROPERTY_TYPE_VALUE:
+        {
+            YGValue value = prop->getter.v(flex);
+            if (vcomp(value, prop->default_.v))
+            {
+                switch (value.unit)
+                {
+                case YGUnitUndefined:
+                    TRACE("%sUndefined(%s);", prop->setterName, ctx->label);
+                    break;
+                case YGUnitPoint:
+                    TRACE("%s(%s, %0.f);", prop->setterName, ctx->label, value.value);
+                    break;
+                case YGUnitPercent:
+                    TRACE("%sPercent(%s, %0.f);", prop->setterName, ctx->label, value.value);
+                    break;
+                case YGUnitAuto:
+                    TRACE("%sAuto(%s);", prop->setterName, ctx->label);
+                    break;
+                }
+            }
+            break;
+        }
+        case PROPERTY_TYPE_ALIGN:
+        {
+            if (prop->getter.a(flex) != prop->default_.a)
+            {
+                const char* alignName = NULL;
+                switch (prop->getter.a(flex))
+                {
+                    ENUM_STRING_CASE(alignName, YGAlignAuto);
+                    ENUM_STRING_CASE(alignName, YGAlignFlexStart);
+                    ENUM_STRING_CASE(alignName, YGAlignCenter);
+                    ENUM_STRING_CASE(alignName, YGAlignFlexEnd);
+                    ENUM_STRING_CASE(alignName, YGAlignStretch);
+                    ENUM_STRING_CASE(alignName, YGAlignBaseline);
+                    ENUM_STRING_CASE(alignName, YGAlignSpaceBetween);
+                    ENUM_STRING_CASE(alignName, YGAlignSpaceAround);
+                }
+                TRACE("%s(%s, %s);", prop->setterName, ctx->label, alignName);
+            }
+            break;
+        }
+        case PROPERTY_TYPE_POSITION:
+        {
+            if (prop->getter.p(flex) != prop->default_.p)
+            {
+                const char* positionName = NULL;
+                switch (prop->getter.p(flex))
+                {
+                    ENUM_STRING_CASE(positionName, YGPositionTypeStatic);
+                    ENUM_STRING_CASE(positionName, YGPositionTypeRelative);
+                    ENUM_STRING_CASE(positionName, YGPositionTypeAbsolute);
+                }
+                TRACE("%s(%s, %s);", prop->setterName, ctx->label, positionName);
+            }
+            break;
+        }
+        case PROPERTY_TYPE_DIRECTION:
+        {
+            if (prop->getter.d(flex) != prop->default_.d)
+            {
+                const char* directionName = NULL;
+                switch (prop->getter.d(flex))
+                {
+                    ENUM_STRING_CASE(directionName, YGFlexDirectionColumn);
+                    ENUM_STRING_CASE(directionName, YGFlexDirectionColumnReverse);
+                    ENUM_STRING_CASE(directionName, YGFlexDirectionRow);
+                    ENUM_STRING_CASE(directionName, YGFlexDirectionRowReverse);
+                }
+                TRACE("%s(%s, %s)", prop->setterName, ctx->label, directionName);
+            }
+            break;
+        }
+        case PROPERTY_TYPE_WRAP:
+        {
+            if (prop->getter.w(flex) != prop->default_.w)
+            {
+                const char* wrapName = NULL;
+                switch (prop->getter.w(flex))
+                {
+                    ENUM_STRING_CASE(wrapName, YGWrapNoWrap);
+                    ENUM_STRING_CASE(wrapName, YGWrapWrap);
+                    ENUM_STRING_CASE(wrapName, YGWrapWrapReverse);
+                }
+                TRACE("%s(%s, %s)", prop->setterName, ctx->label, wrapName);
+            }
+            break;
+        }
+        case PROPERTY_TYPE_EDGE_VALUE:
+        {
+            for (int i = YGEdgeLeft; i <= YGEdgeBottom; i++)
+            {
+                YGValue value = prop->getter.ev(flex, i);
+                if (vcomp(value, prop->default_.ev[i]))
+                {
+                    const char* edgeName = NULL;
+                    switch (i)
+                    {
+                        ENUM_STRING_CASE(edgeName, YGEdgeLeft);
+                        ENUM_STRING_CASE(edgeName, YGEdgeRight);
+                        ENUM_STRING_CASE(edgeName, YGEdgeTop);
+                        ENUM_STRING_CASE(edgeName, YGEdgeBottom);
+                    }
+
+                    switch (value.unit)
+                    {
+                    case YGUnitUndefined:
+                        TRACE("%sUndefined(%s, %s);", prop->setterName, ctx->label, edgeName);
+                        break;
+                    case YGUnitPoint:
+                        TRACE("%s(%s, %s, %0.f);", prop->setterName, ctx->label, edgeName, value.value);
+                        break;
+                    case YGUnitPercent:
+                        TRACE("%sPercent(%s, %s, %0.f);", prop->setterName, ctx->label, edgeName, value.value);
+                        break;
+                    case YGUnitAuto:
+                        TRACE("%sAuto(%s, %s);", prop->setterName, ctx->label, edgeName);
+                        break;
+                    }
+                }
+            }
+            break;
+        }
+        case PROPERTY_TYPE_EDGE_FLOAT:
+        {
+            for (int i = YGEdgeLeft; i <= YGEdgeBottom; i++)
+            {
+                const char* edgeName = NULL;
+                switch (i)
+                {
+                    ENUM_STRING_CASE(edgeName, YGEdgeLeft);
+                    ENUM_STRING_CASE(edgeName, YGEdgeRight);
+                    ENUM_STRING_CASE(edgeName, YGEdgeTop);
+                    ENUM_STRING_CASE(edgeName, YGEdgeBottom);
+                }
+
+                if (fcomp(prop->getter.ef(flex, i), prop->default_.ef[i]))
+                {
+                    TRACE("%s(%s, %s, %0.f);", prop->setterName, ctx->label, edgeName, prop->getter.ef(flex, i));
+                }
+            }
+            break;
+        }
+        case PROPERTY_TYPE_JUSTIFY:
+        {
+            if (prop->getter.j(flex) != prop->default_.j)
+            {
+                const char* justifyName = NULL;
+                switch (prop->getter.j(flex))
+                {
+                    ENUM_STRING_CASE(justifyName, YGJustifyFlexStart);
+                    ENUM_STRING_CASE(justifyName, YGJustifyCenter);
+                    ENUM_STRING_CASE(justifyName, YGJustifyFlexEnd);
+                    ENUM_STRING_CASE(justifyName, YGJustifySpaceBetween);
+                    ENUM_STRING_CASE(justifyName, YGJustifySpaceAround);
+                    ENUM_STRING_CASE(justifyName, YGJustifySpaceEvenly);
+                }
+                TRACE("%s(%s, %s);", prop->setterName, ctx->label, justifyName);
+            }
+            break;
+        }
+        case PROPERTY_TYPE_OVERFLOW:
+        {
+            if (prop->getter.o(flex) != prop->default_.o)
+            {
+                const char* overflowName = NULL;
+                switch (prop->getter.o(flex))
+                {
+                    ENUM_STRING_CASE(overflowName, YGOverflowVisible);
+                    ENUM_STRING_CASE(overflowName, YGOverflowHidden);
+                    ENUM_STRING_CASE(overflowName, YGOverflowScroll);
+                }
+                TRACE("%s(%s, %s);", prop->setterName, ctx->label, overflowName);
+            }
+            break;
+        }
+        case PROPERTY_TYPE_DISPLAY:
+        {
+            if (prop->getter.disp(flex) != prop->default_.disp)
+            {
+                const char* displayName = NULL;
+                switch (prop->getter.disp(flex))
+                {
+                    ENUM_STRING_CASE(displayName, YGDisplayFlex);
+                    ENUM_STRING_CASE(displayName, YGDisplayNone);
+                }
+                TRACE("%s(%s, %s);", prop->setterName, ctx->label, displayName);
+            }
+            break;
+        }
+        case PROPERTY_TYPE_STRING:
+        {
+            char value[128];
+            prop->getter.str(flex, value, sizeof(value));
+            if (strcmp(value, prop->default_.str))
+            {
+                TRACE("%s(%s, %s);", prop->setterName, ctx->label, value);                
+            }
+            break;
+        }
+        }
+    }
+
+    int childCount = YGNodeGetChildCount(flex);
+    for (int i = 0; i < childCount; i++)
+    {
+        YGNodeRef child = YGNodeGetChild(flex, i);
+        GenerateFlex(child);
+    }
+}
+
+static void OnGenerate(const AppState* appState, HWND hwnd)
+{
+    GenerateFlex(appState->rootFlex);
+}
+
 static void OnCommand(AppState* appState, HWND hwnd, HWND hButton, unsigned buttonID)
 {
     switch (buttonID)
     {
     case IDM_FLEX_ADD:
         OnAdd(appState, hwnd, hButton);
+        break;
+    case IDM_FILE_GENERATE:
+        OnGenerate(appState, hwnd);
         break;
     case IDM_FILE_EXIT:
         DestroyWindow(hwnd);
@@ -1349,45 +1588,17 @@ typedef struct TestState
     } controls[4];
 } TestState;
 
+#define TEST(a, b) \
+    TRACE("fcomp(%s, %s) %d", #a, #b, fcomp(a, b))
+
 static void UnitTest(void)
 {
-    TestState stateBuf = {0};
-    TestState* state = &stateBuf;
-
-    state->flex = YGNodeNew();
-    YGNodeStyleSetFlexDirection(state->flex, YGFlexDirectionColumn);
-
-    for (int i = 0; i < 2; i++)
-    {
-        state->controls[i].flex = YGNodeNew();
-        YGNodeStyleSetFlexDirection(state->controls[i].flex, YGFlexDirectionRow);
-        YGNodeStyleSetHeight(state->controls[i].flex, 22.0f);
-        YGNodeInsertChild(state->flex, state->controls[i].flex, YGNodeGetChildCount(state->flex));
-
-        state->controls[i].labelFlex = YGNodeNew();
-        YGNodeStyleSetWidth(state->controls[i].labelFlex, 45.0f);
-        YGNodeInsertChild(state->controls[i].flex, state->controls[i].labelFlex, YGNodeGetChildCount(state->controls[i].flex));
-
-        state->controls[i].controlFlex = YGNodeNew();
-        YGNodeStyleSetHeight(state->controls[i].controlFlex, 22.0f);
-        YGNodeStyleSetFlexGrow(state->controls[i].controlFlex, 1.0f);
-        YGNodeInsertChild(state->controls[i].flex, state->controls[i].controlFlex, YGNodeGetChildCount(state->controls[i].flex));
-    }
-
-    YGNodeStyleSetWidth(state->flex, 120);
-    YGNodeStyleSetHeight(state->flex, 120);
-    YGNodeCalculateLayout(state->flex, YGUndefined, YGUndefined, YGDirectionLTR);
-
-    for (int i = 0; i < 2; i++)
-    {
-        char label[32];
-
-        snprintf(label, sizeof(label), "labelFlex[%d]  ", i);
-        DUMP_FLEX(label, state->controls[i].labelFlex);
-
-        snprintf(label, sizeof(label), "controlFlex[%d]", i);
-        DUMP_FLEX(label, state->controls[i].controlFlex);
-    }
+    TEST(1.0f, 1.0f);
+    TEST(2.0f, 1.0f);
+    TEST(1.0f, 2.0f);
+    TEST(NAN, 2.0f);
+    TEST(1.0f, NAN);
+    TEST(NAN, NAN);
 }
 
 INT WINAPI WinMain(HINSTANCE hInstance,

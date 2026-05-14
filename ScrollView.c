@@ -1,7 +1,5 @@
 #include "ScrollView.h"
 
-#include "Trace.h"
-
 #define CLASSNAME "ScrollView"
 #define SVM_UPDATESCROLL (WM_USER+1)
 
@@ -104,8 +102,6 @@ static void OnVScroll(HWND hwnd, int action, int pos, int multiplier)
 
 static void OnMouseWheel(HWND hwnd, int distance)
 {
-    TRACE("MouseScroll: %d %d", distance, distance / 120);
-
     int amount = distance / 120;
     OnVScroll(hwnd, SB_LINEUP, 0, amount);
 }
