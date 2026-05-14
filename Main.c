@@ -16,6 +16,8 @@
  *
 */
 
+#include "CodeStream.h"
+#include "CodeWindow.h"
 #include "EdgeFloatView.h"
 #include "EdgeValueView.h"
 #include "GroupBox.h"
@@ -164,23 +166,25 @@ typedef struct Property
 
 void NodeGetContext(YGNodeConstRef, char*, size_t);
 void NodeSetContext(YGNodeRef, const char*);
+void NodeGetLabel(YGNodeConstRef, char*, size_t);
+void NodeSetLabel(YGNodeRef, const char*);
 
 static Property gProperties[] =
 {
     { "width", PROPERTY_TYPE_VALUE, VALUE_PROP(Width) },
     { "height", PROPERTY_TYPE_VALUE, VALUE_PROP(Height) },
-    { "min-width", PROPERTY_TYPE_VALUE, { .v = YGNodeStyleGetMinWidth }, "YGNodeStyleGetMinWidth", { .v = { .point =  YGNodeStyleSetMinWidth, .percent = YGNodeStyleSetMinWidthPercent, .auto_ = NULL } } },
-    { "min-height", PROPERTY_TYPE_VALUE, { .v = YGNodeStyleGetMinHeight }, "YGNodeStyleGetMinHeight", { .v = { .point =  YGNodeStyleSetMinHeight, .percent = YGNodeStyleSetMinHeightPercent, .auto_ = NULL } } },
-    { "max-width", PROPERTY_TYPE_VALUE, { .v = YGNodeStyleGetMaxWidth }, "YGNodeStyleGetMaxWidth", { .v = { .point =  YGNodeStyleSetMaxWidth, .percent = YGNodeStyleSetMaxWidthPercent, .auto_ = NULL } } },
-    { "max-height", PROPERTY_TYPE_VALUE, { .v = YGNodeStyleGetMaxHeight }, "YGNodeStyleGetMaxHeight", { .v = { .point =  YGNodeStyleSetMaxHeight, .percent = YGNodeStyleSetMaxHeightPercent, .auto_ = NULL } } },
+    { "min-width", PROPERTY_TYPE_VALUE, { .v = YGNodeStyleGetMinWidth }, "YGNodeStyleSetMinWidth", { .v = { .point =  YGNodeStyleSetMinWidth, .percent = YGNodeStyleSetMinWidthPercent, .auto_ = NULL } } },
+    { "min-height", PROPERTY_TYPE_VALUE, { .v = YGNodeStyleGetMinHeight }, "YGNodeStyleSetMinHeight", { .v = { .point =  YGNodeStyleSetMinHeight, .percent = YGNodeStyleSetMinHeightPercent, .auto_ = NULL } } },
+    { "max-width", PROPERTY_TYPE_VALUE, { .v = YGNodeStyleGetMaxWidth }, "YGNodeStyleSetMaxWidth", { .v = { .point =  YGNodeStyleSetMaxWidth, .percent = YGNodeStyleSetMaxWidthPercent, .auto_ = NULL } } },
+    { "max-height", PROPERTY_TYPE_VALUE, { .v = YGNodeStyleGetMaxHeight }, "YGNodeStyleSetMaxHeight", { .v = { .point =  YGNodeStyleSetMaxHeight, .percent = YGNodeStyleSetMaxHeightPercent, .auto_ = NULL } } },
     { "flex", PROPERTY_TYPE_FLOAT, FLOAT_PROP(Flex) },
     { "flex-grow", PROPERTY_TYPE_FLOAT, FLOAT_PROP(FlexGrow) },
     { "flex-shrink", PROPERTY_TYPE_FLOAT, FLOAT_PROP(FlexShrink) },
     { "basis", PROPERTY_TYPE_VALUE, VALUE_PROP(FlexBasis) },
-    { "position", PROPERTY_TYPE_EDGE_VALUE, { .ev = YGNodeStyleGetPosition }, "YGNodeStyleGetPosition", { .ev = { .point = YGNodeStyleSetPosition, .percent = YGNodeStyleSetPositionPercent, .auto_ = NULL } } },
+    { "position", PROPERTY_TYPE_EDGE_VALUE, { .ev = YGNodeStyleGetPosition }, "YGNodeStyleSetPosition", { .ev = { .point = YGNodeStyleSetPosition, .percent = YGNodeStyleSetPositionPercent, .auto_ = NULL } } },
     { "flex-direction", PROPERTY_TYPE_DIRECTION, DIRECTION_PROP(FlexDirection) },
     { "margin", PROPERTY_TYPE_EDGE_VALUE, EDGE_VALUE_PROP(Margin) },
-    { "padding", PROPERTY_TYPE_EDGE_VALUE, { .ev = YGNodeStyleGetPadding }, "YGNodeStyleGetPadding", { .ev = { .point = YGNodeStyleSetPadding, .percent = YGNodeStyleSetPaddingPercent, .auto_ = NULL } } },
+    { "padding", PROPERTY_TYPE_EDGE_VALUE, { .ev = YGNodeStyleGetPadding }, "YGNodeStyleSetPadding", { .ev = { .point = YGNodeStyleSetPadding, .percent = YGNodeStyleSetPaddingPercent, .auto_ = NULL } } },
     { "border", PROPERTY_TYPE_EDGE_FLOAT, EDGE_FLOAT_PROP(Border) },
     { "justify-content", PROPERTY_TYPE_JUSTIFY, JUSTIFY_PROP(JustifyContent) },
     { "align-content", PROPERTY_TYPE_ALIGN, ALIGN_PROP(AlignContent) },
@@ -191,7 +195,8 @@ static Property gProperties[] =
     { "overflow", PROPERTY_TYPE_OVERFLOW, OVERFLOW_PROP(Overflow) },
     { "display", PROPERTY_TYPE_DISPLAY, DISPLAY_PROP(Display) },
     { "aspect-ratio", PROPERTY_TYPE_FLOAT, FLOAT_PROP(AspectRatio) },
-    { "context", PROPERTY_TYPE_STRING, { .str = NodeGetContext }, "NodeGetContext",  { .str = NodeSetContext } },
+    { "context", PROPERTY_TYPE_STRING, { .str = NodeGetContext }, "YGNodeSetContext",  { .str = NodeSetContext } },
+    { "label", PROPERTY_TYPE_STRING, { .str = NodeGetLabel }, "NodeSetLabel",  { .str = NodeSetLabel } },
     { NULL },
 };
 
@@ -226,6 +231,33 @@ void NodeSetContext(YGNodeRef node, const char* buffer)
     }
 
     strcpy_s(ctx->context, sizeof(ctx->context), buffer);
+}
+
+void NodeGetLabel(YGNodeConstRef node, char* buffer, size_t size)
+{
+    NodeContext* ctx = YGNodeGetContext((YGNodeRef)node);
+    if (!ctx)
+    {
+        if (buffer && size)
+        {
+            *buffer = '\0';
+        }
+        return;
+    }
+
+    strcpy_s(buffer, size, ctx->label);
+}
+
+void NodeSetLabel(YGNodeRef node, const char* buffer)
+{
+    NodeContext* ctx = YGNodeGetContext(node);
+    if (!ctx)
+    {
+        ctx = calloc(1, sizeof(NodeContext));
+        YGNodeSetContext(node, ctx);
+    }
+
+    strcpy_s(ctx->label, sizeof(ctx->label), buffer);
 }
 
 static void InitProperties()
@@ -881,7 +913,7 @@ static void OnAdd(AppState* appState, HWND hwnd, HWND hButton)
     InvalidateRect(appState->hLayoutView, NULL, TRUE);
 }
 
-static void GenerateFlex(YGNodeRef flex)
+static void GenerateFlex(CodeStream* stream, YGNodeRef flex)
 {
     assert(flex != NULL);
 
@@ -897,7 +929,7 @@ static void GenerateFlex(YGNodeRef flex)
             float value = prop->getter.f(flex);
             if (fcomp(value, prop->default_.f))
             {
-                TRACE("%s(%s, %0.f);", prop->setterName, ctx->label, value);
+                CodeStream_Write(stream, "%s(%s, %0.f);", prop->setterName, ctx->label, value);
             }
             break;
         }
@@ -909,16 +941,16 @@ static void GenerateFlex(YGNodeRef flex)
                 switch (value.unit)
                 {
                 case YGUnitUndefined:
-                    TRACE("%sUndefined(%s);", prop->setterName, ctx->label);
+                    CodeStream_Write(stream, "%sUndefined(%s);", prop->setterName, ctx->label);
                     break;
                 case YGUnitPoint:
-                    TRACE("%s(%s, %0.f);", prop->setterName, ctx->label, value.value);
+                    CodeStream_Write(stream, "%s(%s, %0.f);", prop->setterName, ctx->label, value.value);
                     break;
                 case YGUnitPercent:
-                    TRACE("%sPercent(%s, %0.f);", prop->setterName, ctx->label, value.value);
+                    CodeStream_Write(stream, "%sPercent(%s, %0.f);", prop->setterName, ctx->label, value.value);
                     break;
                 case YGUnitAuto:
-                    TRACE("%sAuto(%s);", prop->setterName, ctx->label);
+                    CodeStream_Write(stream, "%sAuto(%s);", prop->setterName, ctx->label);
                     break;
                 }
             }
@@ -940,7 +972,7 @@ static void GenerateFlex(YGNodeRef flex)
                     ENUM_STRING_CASE(alignName, YGAlignSpaceBetween);
                     ENUM_STRING_CASE(alignName, YGAlignSpaceAround);
                 }
-                TRACE("%s(%s, %s);", prop->setterName, ctx->label, alignName);
+                CodeStream_Write(stream, "%s(%s, %s);", prop->setterName, ctx->label, alignName);
             }
             break;
         }
@@ -955,7 +987,7 @@ static void GenerateFlex(YGNodeRef flex)
                     ENUM_STRING_CASE(positionName, YGPositionTypeRelative);
                     ENUM_STRING_CASE(positionName, YGPositionTypeAbsolute);
                 }
-                TRACE("%s(%s, %s);", prop->setterName, ctx->label, positionName);
+                CodeStream_Write(stream, "%s(%s, %s);", prop->setterName, ctx->label, positionName);
             }
             break;
         }
@@ -971,7 +1003,7 @@ static void GenerateFlex(YGNodeRef flex)
                     ENUM_STRING_CASE(directionName, YGFlexDirectionRow);
                     ENUM_STRING_CASE(directionName, YGFlexDirectionRowReverse);
                 }
-                TRACE("%s(%s, %s)", prop->setterName, ctx->label, directionName);
+                CodeStream_Write(stream, "%s(%s, %s)", prop->setterName, ctx->label, directionName);
             }
             break;
         }
@@ -986,7 +1018,7 @@ static void GenerateFlex(YGNodeRef flex)
                     ENUM_STRING_CASE(wrapName, YGWrapWrap);
                     ENUM_STRING_CASE(wrapName, YGWrapWrapReverse);
                 }
-                TRACE("%s(%s, %s)", prop->setterName, ctx->label, wrapName);
+                CodeStream_Write(stream, "%s(%s, %s)", prop->setterName, ctx->label, wrapName);
             }
             break;
         }
@@ -1009,16 +1041,16 @@ static void GenerateFlex(YGNodeRef flex)
                     switch (value.unit)
                     {
                     case YGUnitUndefined:
-                        TRACE("%sUndefined(%s, %s);", prop->setterName, ctx->label, edgeName);
+                        CodeStream_Write(stream, "%sUndefined(%s, %s);", prop->setterName, ctx->label, edgeName);
                         break;
                     case YGUnitPoint:
-                        TRACE("%s(%s, %s, %0.f);", prop->setterName, ctx->label, edgeName, value.value);
+                        CodeStream_Write(stream, "%s(%s, %s, %0.f);", prop->setterName, ctx->label, edgeName, value.value);
                         break;
                     case YGUnitPercent:
-                        TRACE("%sPercent(%s, %s, %0.f);", prop->setterName, ctx->label, edgeName, value.value);
+                        CodeStream_Write(stream, "%sPercent(%s, %s, %0.f);", prop->setterName, ctx->label, edgeName, value.value);
                         break;
                     case YGUnitAuto:
-                        TRACE("%sAuto(%s, %s);", prop->setterName, ctx->label, edgeName);
+                        CodeStream_Write(stream, "%sAuto(%s, %s);", prop->setterName, ctx->label, edgeName);
                         break;
                     }
                 }
@@ -1040,7 +1072,7 @@ static void GenerateFlex(YGNodeRef flex)
 
                 if (fcomp(prop->getter.ef(flex, i), prop->default_.ef[i]))
                 {
-                    TRACE("%s(%s, %s, %0.f);", prop->setterName, ctx->label, edgeName, prop->getter.ef(flex, i));
+                    CodeStream_Write(stream, "%s(%s, %s, %0.f);", prop->setterName, ctx->label, edgeName, prop->getter.ef(flex, i));
                 }
             }
             break;
@@ -1059,7 +1091,7 @@ static void GenerateFlex(YGNodeRef flex)
                     ENUM_STRING_CASE(justifyName, YGJustifySpaceAround);
                     ENUM_STRING_CASE(justifyName, YGJustifySpaceEvenly);
                 }
-                TRACE("%s(%s, %s);", prop->setterName, ctx->label, justifyName);
+                CodeStream_Write(stream, "%s(%s, %s);", prop->setterName, ctx->label, justifyName);
             }
             break;
         }
@@ -1074,7 +1106,7 @@ static void GenerateFlex(YGNodeRef flex)
                     ENUM_STRING_CASE(overflowName, YGOverflowHidden);
                     ENUM_STRING_CASE(overflowName, YGOverflowScroll);
                 }
-                TRACE("%s(%s, %s);", prop->setterName, ctx->label, overflowName);
+                CodeStream_Write(stream, "%s(%s, %s);", prop->setterName, ctx->label, overflowName);
             }
             break;
         }
@@ -1088,7 +1120,7 @@ static void GenerateFlex(YGNodeRef flex)
                     ENUM_STRING_CASE(displayName, YGDisplayFlex);
                     ENUM_STRING_CASE(displayName, YGDisplayNone);
                 }
-                TRACE("%s(%s, %s);", prop->setterName, ctx->label, displayName);
+                CodeStream_Write(stream, "%s(%s, %s);", prop->setterName, ctx->label, displayName);
             }
             break;
         }
@@ -1098,7 +1130,7 @@ static void GenerateFlex(YGNodeRef flex)
             prop->getter.str(flex, value, sizeof(value));
             if (strcmp(value, prop->default_.str))
             {
-                TRACE("%s(%s, %s);", prop->setterName, ctx->label, value);                
+                CodeStream_Write(stream, "%s(%s, %s);", prop->setterName, ctx->label, value);                
             }
             break;
         }
@@ -1109,13 +1141,24 @@ static void GenerateFlex(YGNodeRef flex)
     for (int i = 0; i < childCount; i++)
     {
         YGNodeRef child = YGNodeGetChild(flex, i);
-        GenerateFlex(child);
+        GenerateFlex(stream, child);
     }
 }
 
 static void OnGenerate(const AppState* appState, HWND hwnd)
 {
-    GenerateFlex(appState->rootFlex);
+    CodeStream* stream = CodeStream_Create();
+    GenerateFlex(stream, appState->rootFlex);
+
+    HWND hCodeWin = CodeWindow_Create(
+        appState->hInstance,
+        hwnd,
+        CW_USEDEFAULT, 0,
+        CW_USEDEFAULT, 0);
+    CodeWindow_SetValue(hCodeWin, CodeStream_Get(stream));
+    CodeStream_Destroy(stream);
+
+    SendMessage(hCodeWin, WM_SETFONT, (WPARAM)appState->hFont, TRUE);
 }
 
 static void OnCommand(AppState* appState, HWND hwnd, HWND hButton, unsigned buttonID)
@@ -1526,6 +1569,11 @@ static bool InitApplication(HINSTANCE hInstance)
     {
         return false;
     }
+
+    if (!CodeWindow_Init(hInstance))
+    {
+        return false;
+    }
     return true;
 }
 
@@ -1588,17 +1636,28 @@ typedef struct TestState
     } controls[4];
 } TestState;
 
-#define TEST(a, b) \
-    TRACE("fcomp(%s, %s) %d", #a, #b, fcomp(a, b))
+static void Mangery_Write(CodeStream* stream, const char* fmt, ...)
+{
+    va_list args;
+    va_start(args, fmt);
+
+    char buffer[1024];
+    vsnprintf(buffer, sizeof(buffer), fmt, args);
+
+    va_end(args);
+}
 
 static void UnitTest(void)
 {
-    TEST(1.0f, 1.0f);
-    TEST(2.0f, 1.0f);
-    TEST(1.0f, 2.0f);
-    TEST(NAN, 2.0f);
-    TEST(1.0f, NAN);
-    TEST(NAN, NAN);
+    CodeStream* stream = CodeStream_Create();
+
+    CodeStream_Write(stream, " all your %s are belong", "base");
+    CodeStream_Write(stream, "1");
+    CodeStream_Write(stream, "%d US %s %0.f 0x%08X", 420, "yvonne chaka chaka", 3.14f, 0xDEADBEEF);
+
+    TRACE("%s", CodeStream_Get(stream));
+
+    CodeStream_Destroy(stream);
 }
 
 INT WINAPI WinMain(HINSTANCE hInstance,
