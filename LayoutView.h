@@ -1,7 +1,8 @@
 #pragma once
 
-#include <stdbool.h>
 #include <Windows.h>
+#include <CommCtrl.h>
+#include <stdbool.h>
 #include <yoga/Yoga.h>
 
 typedef struct NodeContext
@@ -9,6 +10,8 @@ typedef struct NodeContext
     char label[128];
     uint32_t color;
     char context[128];
+    HTREEITEM hTreeItem;
+    HWND hTree;
 } NodeContext;
 
 bool LayoutView_Init(HINSTANCE hInstance);

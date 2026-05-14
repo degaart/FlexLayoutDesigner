@@ -258,6 +258,16 @@ void NodeSetLabel(YGNodeRef node, const char* buffer)
     }
 
     strcpy_s(ctx->label, sizeof(ctx->label), buffer);
+    if (ctx->hTreeItem)
+    {
+        TVITEM item = {0};
+
+        item.mask  = TVIF_TEXT;
+        item.hItem = ctx->hTreeItem;
+        item.pszText = ctx->label;
+
+        TreeView_SetItem(ctx->hTree, &item);
+    }
 }
 
 static void InitProperties()
@@ -776,7 +786,14 @@ static YGNodeRef CreateNode(YGNodeRef parent, int index)
 {
     NodeContext* ctx = calloc(1, sizeof(NodeContext));
     ctx->color = GenerateColor(index);
-    snprintf(ctx->label, sizeof(ctx->label), "%d", index);
+    if (index == 0)
+    {
+        strcpy_s(ctx->label, sizeof(ctx->label), "rootFlex");    
+    }
+    else
+    {
+        snprintf(ctx->label, sizeof(ctx->label), "flex%d", index);
+    }
 
     YGNodeRef node = YGNodeNew();
     YGNodeSetContext(node, ctx);
@@ -813,10 +830,13 @@ static void OnCreate(HWND hwnd, AppState* appState)
     YGNodeStyleSetHeight(appState->rootFlex, rc.bottom - rc.top);
     YGNodeCalculateLayout(appState->rootFlex, YGUndefined, YGUndefined, YGDirectionLTR);
 
+    NodeContext* rootCtx = YGNodeGetContext(appState->rootFlex);
     appState->hRootTreeItem = InsertTreeItem(appState->hLayoutTree,
             NULL,
-            "root",
+            rootCtx->label,
             appState->rootFlex);
+    rootCtx->hTreeItem = appState->hRootTreeItem;
+    rootCtx->hTree = appState->hLayoutTree;
 
     GroupBox_Create(appState->hInstance, hwnd,
             "Layout",
@@ -906,10 +926,13 @@ static void OnAdd(AppState* appState, HWND hwnd, HWND hButton)
     YGNodeCalculateLayout(appState->rootFlex, YGUndefined, YGUndefined, YGDirectionLTR);
 
     NodeContext* ctx = YGNodeGetContext(node);
-    InsertTreeItem(appState->hLayoutTree,
+    HTREEITEM hTreeItem = InsertTreeItem(appState->hLayoutTree,
             treeItem,
             ctx->label,
             node);
+    ctx->hTreeItem = hTreeItem;
+    ctx->hTree = appState->hLayoutTree;
+
     InvalidateRect(appState->hLayoutView, NULL, TRUE);
 }
 
