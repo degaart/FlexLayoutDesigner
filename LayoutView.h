@@ -9,6 +9,7 @@ typedef struct NodeContext
 {
     char label[128];
     uint32_t color;
+    uint32_t textColor;
     char context[128];
     HTREEITEM hTreeItem;
     HWND hTree;

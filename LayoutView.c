@@ -22,13 +22,13 @@ typedef struct WindowData
     YGNodeRef selectedFlex;
 } WindowData;
 
-static void PaintFlex(HDC hdc, WindowData* data, YGNodeRef flex)
+static void PaintFlex(HDC hdc, WindowData* data, YGNodeRef flex, float originX, float originY)
 {
     NodeContext* ctx = YGNodeGetContext(flex);
     assert(ctx != NULL);
 
-    float left = YGNodeLayoutGetLeft(flex);
-    float top = YGNodeLayoutGetTop(flex);
+    float left = YGNodeLayoutGetLeft(flex) + originX;
+    float top = YGNodeLayoutGetTop(flex) + originY;
     float width = YGNodeLayoutGetWidth(flex);
     float height = YGNodeLayoutGetHeight(flex);
 
@@ -41,7 +41,7 @@ static void PaintFlex(HDC hdc, WindowData* data, YGNodeRef flex)
     HBRUSH brush = CreateSolidBrush(ctx->color);
     if (flex == data->selectedFlex)
     {
-        HPEN pen = CreatePen(PS_SOLID, 1, ctx->color ^ 0x00FFFFFF);
+        HPEN pen = CreatePen(PS_SOLID, 1, ctx->textColor);
         SelectObject(hdc, pen);
         SelectObject(hdc, brush);
         Rectangle(hdc, rc.left, rc.top, rc.right, rc.bottom);
@@ -57,7 +57,7 @@ static void PaintFlex(HDC hdc, WindowData* data, YGNodeRef flex)
 
     SetBkColor(hdc, ctx->color);
     SetTextAlign(hdc, TA_LEFT|TA_TOP);
-    SetTextColor(hdc, ctx->color ^ 0x00FFFFFF);
+    SetTextColor(hdc, ctx->textColor);
 
     SIZE textSize;
     GetTextExtentPoint32(hdc, ctx->label, textLen, &textSize);
@@ -78,7 +78,7 @@ static void PaintFlex(HDC hdc, WindowData* data, YGNodeRef flex)
     unsigned children = YGNodeGetChildCount(flex);
     for (unsigned i = 0; i < children; i++)
     {
-        PaintFlex(hdc, data, YGNodeGetChild(flex, i));
+        PaintFlex(hdc, data, YGNodeGetChild(flex, i), rc.left, rc.top);
     }
 }
 
@@ -86,7 +86,7 @@ static void OnPaint(HWND hwnd, HDC hdc, PAINTSTRUCT* ps, WindowData* data)
 {
     HBRUSH brush = GetSysColorBrush(COLOR_WINDOW);
     FillRect(hdc, &ps->rcPaint, brush);
-    PaintFlex(hdc, data, data->rootFlex);
+    PaintFlex(hdc, data, data->rootFlex, 0.0f, 0.0f);
 }
 
 static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)

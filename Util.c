@@ -198,5 +198,33 @@ int vcomp(YGValue a, YGValue b)
     return fcomp(a.value, b.value);
 }
 
+float ToLinear(unsigned component)
+{
+    float s = (float)component / 255.0f;
+    if (s <= 0.04045)
+    {
+        return s / 12.92f;
+    }
+
+    return powf((s + 0.055f) / 1.055f, 2.4f);
+}
+
+uint32_t InvertColor(uint32_t color)
+{
+    unsigned r = GetRValue(color);
+    unsigned g = GetGValue(color);
+    unsigned b = GetBValue(color);
+
+    float luminance = 
+        (0.2126f * ToLinear(r)) +
+        (0.7152f * ToLinear(g)) +
+        (0.0722f * ToLinear(b));
+    if (luminance > 0.179f)
+    {
+        return 0x00000000;
+    }
+    return 0x00FFFFFF;
+}
+
 
 

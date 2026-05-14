@@ -56,11 +56,13 @@ typedef struct AppState
     HFONT hFont;
     HWND hLayoutView;
     HWND hLayoutTree;
+    HWND hPropertiesContainer;
     HTREEITEM hRootTreeItem;
     YGNodeRef rootFlex;
     int index;
     int blockUpdates;
     YGNodeRef propsFlex;
+    YGNodeRef editorFlex;
 } AppState;
 
 typedef union PropertyValue
@@ -195,8 +197,8 @@ static Property gProperties[] =
     { "overflow", PROPERTY_TYPE_OVERFLOW, OVERFLOW_PROP(Overflow) },
     { "display", PROPERTY_TYPE_DISPLAY, DISPLAY_PROP(Display) },
     { "aspect-ratio", PROPERTY_TYPE_FLOAT, FLOAT_PROP(AspectRatio) },
-    { "context", PROPERTY_TYPE_STRING, { .str = NodeGetContext }, "YGNodeSetContext",  { .str = NodeSetContext } },
-    { "label", PROPERTY_TYPE_STRING, { .str = NodeGetLabel }, "NodeSetLabel",  { .str = NodeSetLabel } },
+    { "HWND", PROPERTY_TYPE_STRING, { .str = NodeGetContext }, "SetFlexHWND",  { .str = NodeSetContext } },
+    { "label", PROPERTY_TYPE_STRING, { .str = NodeGetLabel }, "SetFlexLabel",  { .str = NodeSetLabel } },
     { NULL },
 };
 
@@ -786,6 +788,7 @@ static YGNodeRef CreateNode(YGNodeRef parent, int index)
 {
     NodeContext* ctx = calloc(1, sizeof(NodeContext));
     ctx->color = GenerateColor(index);
+    ctx->textColor = InvertColor(ctx->color);
     if (index == 0)
     {
         strcpy_s(ctx->label, sizeof(ctx->label), "rootFlex");    
@@ -838,21 +841,21 @@ static void OnCreate(HWND hwnd, AppState* appState)
     rootCtx->hTreeItem = appState->hRootTreeItem;
     rootCtx->hTree = appState->hLayoutTree;
 
-    GroupBox_Create(appState->hInstance, hwnd,
+    HWND hLayoutGroupBox = GroupBox_Create(appState->hInstance, hwnd,
             "Layout",
             0, 32+10+32+20,
             300, 200);
 
-    HWND propertiesContainer = ScrollView_Create(appState->hInstance,
+    appState->hPropertiesContainer = ScrollView_Create(appState->hInstance,
                                                  hwnd,
                                                  10, 32 + 10 + 32 + 10 + 200 + 20 + 20,
                                                  280, 170);
 
     InitProperties();
-    CreateProperties(appState, propertiesContainer);
-    ScrollView_UpdateScroll(propertiesContainer);
+    CreateProperties(appState, appState->hPropertiesContainer);
+    ScrollView_UpdateScroll(appState->hPropertiesContainer);
 
-    GroupBox_Create(appState->hInstance,
+    HWND hPropertiesGroupBox = GroupBox_Create(appState->hInstance,
             hwnd,
             "Properties",
             0, 32+10+32+10+200+20,
@@ -870,43 +873,86 @@ static void OnCreate(HWND hwnd, AppState* appState)
     appState->hFont = CreateFontIndirect(&ncm.lfMessageFont);
     ApplyFont(hwnd, appState->hFont);
 
+    FlexData* ctx;
+
+    YGNodeRef rootEditorFlex = YGNodeNew();
+    YGNodeStyleSetWidth(rootEditorFlex, 640);
+    YGNodeStyleSetHeight(rootEditorFlex, 520);
+    YGNodeStyleSetFlexDirection(rootEditorFlex, YGFlexDirectionRow);
+    YGNodeStyleSetPadding(rootEditorFlex, YGEdgeLeft, 5);
+    YGNodeStyleSetPadding(rootEditorFlex, YGEdgeTop, 5);
+    YGNodeStyleSetPadding(rootEditorFlex, YGEdgeRight, 5);
+    YGNodeStyleSetPadding(rootEditorFlex, YGEdgeBottom, 5);
+
+    YGNodeRef flex1 = YGNodeNew();
+    YGNodeStyleSetMinWidth(flex1, 300);
+
+    YGNodeRef layoutGroupEditorFlex = YGNodeNew();
+    YGNodeStyleSetFlexGrow(layoutGroupEditorFlex, 1);
+    YGNodeStyleSetPadding(layoutGroupEditorFlex, YGEdgeLeft, 5);
+    YGNodeStyleSetPadding(layoutGroupEditorFlex, YGEdgeTop, 20);
+    YGNodeStyleSetPadding(layoutGroupEditorFlex, YGEdgeRight, 5);
+    YGNodeStyleSetPadding(layoutGroupEditorFlex, YGEdgeBottom, 5);
+    YGNodeStyleSetMargin(layoutGroupEditorFlex, YGEdgeBottom, 10);
+    ctx = calloc(1, sizeof(FlexData));
+    ctx->hwnd = hLayoutGroupBox;
+    YGNodeSetContext(layoutGroupEditorFlex, ctx);
+
+    YGNodeRef layoutTreeEditorFlex = YGNodeNew();
+    YGNodeStyleSetFlexGrow(layoutTreeEditorFlex, 1);
+    YGNodeInsertChild(layoutGroupEditorFlex, layoutTreeEditorFlex, YGNodeGetChildCount(layoutGroupEditorFlex));
+    ctx = calloc(1, sizeof(FlexData));
+    ctx->hwnd = appState->hLayoutTree;
+    YGNodeSetContext(layoutTreeEditorFlex, ctx);
+
+    YGNodeInsertChild(flex1, layoutGroupEditorFlex, YGNodeGetChildCount(flex1));
+
+    YGNodeRef propsGroupEditorFlex = YGNodeNew();
+    YGNodeStyleSetFlexGrow(propsGroupEditorFlex, 2);
+    YGNodeStyleSetPadding(propsGroupEditorFlex, YGEdgeLeft, 5);
+    YGNodeStyleSetPadding(propsGroupEditorFlex, YGEdgeTop, 20);
+    YGNodeStyleSetPadding(propsGroupEditorFlex, YGEdgeRight, 5);
+    YGNodeStyleSetPadding(propsGroupEditorFlex, YGEdgeBottom, 5);
+    ctx = calloc(1, sizeof(FlexData));
+    ctx->hwnd = hPropertiesGroupBox;
+    YGNodeSetContext(propsGroupEditorFlex, ctx);
+
+    YGNodeRef propsEditorFlex = YGNodeNew();
+    YGNodeStyleSetFlexGrow(propsEditorFlex, 1);
+    YGNodeInsertChild(propsGroupEditorFlex, propsEditorFlex, YGNodeGetChildCount(propsGroupEditorFlex));
+    ctx = calloc(1, sizeof(FlexData));
+    ctx->hwnd = appState->hPropertiesContainer;
+    YGNodeSetContext(propsEditorFlex, ctx);
+
+    YGNodeInsertChild(flex1, propsGroupEditorFlex, YGNodeGetChildCount(flex1));
+
+    YGNodeInsertChild(rootEditorFlex, flex1, YGNodeGetChildCount(rootEditorFlex));
+
+    YGNodeRef flex2 = YGNodeNew();
+    YGNodeStyleSetFlexGrow(flex2, 1);
+    YGNodeStyleSetPadding(flex2, YGEdgeLeft, 5);
+
+    YGNodeRef layoutViewEditorFlex = YGNodeNew();
+    YGNodeStyleSetFlexGrow(layoutViewEditorFlex, 1);
+    YGNodeInsertChild(flex2, layoutViewEditorFlex, YGNodeGetChildCount(flex2));
+    ctx = calloc(1, sizeof(FlexData));
+    ctx->hwnd = appState->hLayoutView;
+    YGNodeSetContext(layoutViewEditorFlex, ctx);
+
+    YGNodeInsertChild(rootEditorFlex, flex2, YGNodeGetChildCount(rootEditorFlex));
+
+    appState->editorFlex = rootEditorFlex;
+    LayoutFlex(appState->editorFlex, 0.0f, 0.0f);
+
     appState->blockUpdates--;
 }
 
 static void OnSize(AppState* appState, HWND hwnd, WORD width, WORD height)
 {
-    RECT rc;
-    GetWindowRect(appState->hLayoutView, &rc);
-    MapWindowPoints(NULL, hwnd, (LPPOINT)&rc, 2);
-
-    int layoutViewWidth = rc.right - rc.left;
-    if (width > rc.left)
-    {
-        layoutViewWidth = width - rc.left - 10;
-    }
-
-    int layoutViewHeight = rc.bottom - rc.top;
-    if (height > rc.top)
-    {
-        layoutViewHeight = height - rc.top - 10;
-    }
-
-    YGNodeStyleSetWidth(appState->rootFlex, layoutViewWidth);
-    YGNodeStyleSetHeight(appState->rootFlex, layoutViewHeight);
-    YGNodeCalculateLayout(appState->rootFlex, YGUndefined, YGUndefined, YGDirectionLTR);
-
-    YGNodeRef node = GetSelectedNode(appState->hLayoutTree, NULL);
-    if (node)
-    {
-        DisplayProperties(appState, node);
-    }
-
-    SetWindowPos(appState->hLayoutView,
-                 NULL,
-                 rc.left, rc.right,
-                 layoutViewWidth, layoutViewHeight,
-                 SWP_NOMOVE | SWP_NOZORDER);
-    InvalidateRect(appState->hLayoutView, NULL, TRUE);
+    YGNodeStyleSetWidth(appState->editorFlex, width);
+    YGNodeStyleSetHeight(appState->editorFlex, height);
+    YGNodeCalculateLayout(appState->editorFlex, YGUndefined, YGUndefined, YGDirectionLTR);
+    LayoutFlex(appState->editorFlex, 0.0f, 0.0f);
 }
 
 static void OnAdd(AppState* appState, HWND hwnd, HWND hButton)
@@ -942,6 +988,8 @@ static void GenerateFlex(CodeStream* stream, YGNodeRef flex)
 
     NodeContext* ctx = YGNodeGetContext(flex);
     assert(ctx != NULL);
+
+    CodeStream_Write(stream, "YGNodeRef %s = YGNodeNew();", ctx->label);
 
     for (Property* prop = gProperties; prop->name; prop++)
     {
@@ -1026,7 +1074,7 @@ static void GenerateFlex(CodeStream* stream, YGNodeRef flex)
                     ENUM_STRING_CASE(directionName, YGFlexDirectionRow);
                     ENUM_STRING_CASE(directionName, YGFlexDirectionRowReverse);
                 }
-                CodeStream_Write(stream, "%s(%s, %s)", prop->setterName, ctx->label, directionName);
+                CodeStream_Write(stream, "%s(%s, %s);", prop->setterName, ctx->label, directionName);
             }
             break;
         }
@@ -1149,11 +1197,14 @@ static void GenerateFlex(CodeStream* stream, YGNodeRef flex)
         }
         case PROPERTY_TYPE_STRING:
         {
-            char value[128];
-            prop->getter.str(flex, value, sizeof(value));
-            if (strcmp(value, prop->default_.str))
+            if (strcmp(prop->name, "label"))
             {
-                CodeStream_Write(stream, "%s(%s, %s);", prop->setterName, ctx->label, value);                
+                char value[128];
+                prop->getter.str(flex, value, sizeof(value));
+                if (strcmp(value, prop->default_.str))
+                {
+                    CodeStream_Write(stream, "%s(%s, %s);", prop->setterName, ctx->label, value);                
+                }
             }
             break;
         }
@@ -1165,6 +1216,17 @@ static void GenerateFlex(CodeStream* stream, YGNodeRef flex)
     {
         YGNodeRef child = YGNodeGetChild(flex, i);
         GenerateFlex(stream, child);
+
+        NodeContext* childCtx = YGNodeGetContext(child);
+        assert(childCtx != NULL);
+
+        CodeStream_Write(
+            stream, 
+            "YGNodeInsertChild(%s, %s, YGNodeGetChildCount(%s));",
+            ctx->label,
+            childCtx->label,
+            ctx->label);
+        CodeStream_Write(stream, "");
     }
 }
 
