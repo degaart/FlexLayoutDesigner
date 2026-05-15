@@ -88,15 +88,10 @@ static void OnVScroll(HWND hwnd, int action, int pos, int multiplier)
     SetScrollInfo(hwnd, SB_VERT, &si, TRUE);
 
     int delta = yPos - oldPos;
-    for (HWND hChild = GetWindow(hwnd, GW_CHILD); hChild; hChild = GetWindow(hChild, GW_HWNDNEXT))
+    if (delta != 0)
     {
-        RECT rc;
-        GetWindowRect(hChild, &rc);
-
-        POINT pt = { .x = rc.left, .y = rc.top };
-        ScreenToClient(hwnd, &pt);
-
-        SetWindowPos(hChild, NULL, pt.x, pt.y - delta, 0, 0, SWP_NOSIZE|SWP_NOZORDER);
+        ScrollWindowEx(hwnd, 0, -delta, NULL, NULL, NULL, NULL,
+                       SW_SCROLLCHILDREN | SW_INVALIDATE | SW_ERASE);
     }
 }
 
