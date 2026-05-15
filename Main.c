@@ -1,28 +1,12 @@
-/*
- * ┌─Layout───────────────┐ ┌─────────────────────────────────┐
- * │ + root               │ │                                 │
- * │   + timerLabel       │ │        LAYOUT PREVIEW           │
- * │   + buttonContainer  │ │                                 │
- * │     + startButton    │ │                                 │
- * │     + stopButton     │ │                                 │
- * │     + resetButton    │ │                                 │
- * └──────────────────────┘ │                                 │
- * ┌─Properties───────────┐ │                                 │
- * │ Width:         [   ] │ │                                 │
- * │ Height:        [   ] │ │                                 │
- * │ Align:  [ CENTER  v] │ │                                 │
- * │ Wrap:   [ NO_WRAP v] │ │                                 │
- * └──────────────────────┘ └─────────────────────────────────┘
- *
-*/
-
 #include "CodeStream.h"
 #include "CodeWindow.h"
 #include "EdgeFloatView.h"
 #include "EdgeValueView.h"
 #include "GroupBox.h"
 #include "LayoutView.h"
+#include "Properties.h"
 #include "ScrollView.h"
+#include "Serialization.h"
 #include "Trace.h"
 #include "Util.h"
 #include "ValueView.h"
@@ -65,143 +49,6 @@ typedef struct AppState
     YGNodeRef propsFlex;
     YGNodeRef editorFlex;
 } AppState;
-
-typedef union PropertyValue
-{
-    float           f;
-    YGValue         v;
-    YGAlign         a;
-    YGFlexDirection d;
-    YGWrap          w;
-    YGPositionType  p;
-    YGValue         ev[4];    /* YGEdgeLeft, YGEdgeTop, YGEdgeRight, YGEdgeBottom, in that order */
-    float           ef[4];    /* YGEdgeLeft, YGEdgeTop, YGEdgeRight, YGEdgeBottom, in that order */
-    YGJustify       j;
-    YGOverflow      o;
-    YGDisplay       disp;
-    char            str[128];
-} PropertyValue;
-
-typedef union PropertyGetter
-{
-    float           (*f)(YGNodeConstRef);
-    YGValue         (*v)(YGNodeConstRef);
-    YGAlign         (*a)(YGNodeConstRef);
-    YGFlexDirection (*d)(YGNodeConstRef);
-    YGWrap          (*w)(YGNodeConstRef);
-    YGPositionType  (*p)(YGNodeConstRef);
-    YGValue         (*ev)(YGNodeConstRef, YGEdge);
-    float           (*ef)(YGNodeConstRef, YGEdge);
-    YGJustify       (*j)(YGNodeConstRef);
-    YGOverflow      (*o)(YGNodeConstRef);
-    YGDisplay       (*disp)(YGNodeConstRef);
-    void            (*str)(YGNodeConstRef, char*, size_t);
-} PropertyGetter;
-
-typedef union PropertySetter
-{
-    void (*f)(YGNodeRef, float);
-    struct
-    {
-        void (*point)(YGNodeRef, float);
-        void (*percent)(YGNodeRef, float);
-        void (*auto_)(YGNodeRef);
-    } v;
-    void (*a)(YGNodeRef, YGAlign);
-    void (*d)(YGNodeRef, YGFlexDirection);
-    void (*w)(YGNodeRef, YGWrap);
-    void (*p)(YGNodeRef, YGPositionType);
-    struct
-    {
-        void (*point)(YGNodeRef, YGEdge, float);
-        void (*percent)(YGNodeRef, YGEdge, float);
-        void (*auto_)(YGNodeRef, YGEdge);
-    } ev;
-    void (*ef)(YGNodeRef, YGEdge, float);
-    void (*j)(YGNodeRef, YGJustify);
-    void (*o)(YGNodeRef, YGOverflow);
-    void (*disp)(YGNodeRef, YGDisplay);
-    void (*str)(YGNodeRef, const char*);
-} PropertySetter;
-
-typedef enum PropertyType
-{
-    PROPERTY_TYPE_FLOAT,
-    PROPERTY_TYPE_VALUE,
-    PROPERTY_TYPE_ALIGN,
-    PROPERTY_TYPE_POSITION,
-    PROPERTY_TYPE_DIRECTION,
-    PROPERTY_TYPE_WRAP,
-    PROPERTY_TYPE_EDGE_VALUE,
-    PROPERTY_TYPE_EDGE_FLOAT,
-    PROPERTY_TYPE_JUSTIFY,
-    PROPERTY_TYPE_OVERFLOW,
-    PROPERTY_TYPE_DISPLAY,
-    PROPERTY_TYPE_STRING,
-} PropertyType;
-
-typedef struct Property
-{
-    const char* name;
-    PropertyType type;
-    PropertyGetter getter;
-    const char* setterName;
-    PropertySetter setter;
-    PropertyValue default_;
-    HWND hLabel;
-    HWND hControl;
-    YGNodeRef flex;
-    YGNodeRef labelFlex;
-    YGNodeRef controlFlex;
-} Property;
-
-#define VALUE_PROP(P)       { .v = YGNodeStyleGet    ## P }, "YGNodeStyleSet" #P, { .v = { .point = YGNodeStyleSet ## P, .percent = YGNodeStyleSet ## P ## Percent, .auto_ = YGNodeStyleSet ## P ## Auto } } 
-#define FLOAT_PROP(P)       { .f = YGNodeStyleGet    ## P }, "YGNodeStyleSet" #P, { .f = YGNodeStyleSet ## P }
-#define DIRECTION_PROP(P)   { .d = YGNodeStyleGet    ## P }, "YGNodeStyleSet" #P, { .d = YGNodeStyleSet ## P }
-#define EDGE_VALUE_PROP(P)  { .ev = YGNodeStyleGet   ## P }, "YGNodeStyleSet" #P, { .ev = { .point = YGNodeStyleSet ## P, .percent = YGNodeStyleSet ## P ## Percent, .auto_ = YGNodeStyleSet ## P ## Auto } }
-#define EDGE_FLOAT_PROP(P)  { .ef = YGNodeStyleGet   ## P }, "YGNodeStyleSet" #P, { .ef = YGNodeStyleSet ## P }
-#define JUSTIFY_PROP(P)     { .j = YGNodeStyleGet    ## P }, "YGNodeStyleSet" #P, { .j = YGNodeStyleSet ## P }
-#define ALIGN_PROP(P)       { .a = YGNodeStyleGet    ## P }, "YGNodeStyleSet" #P, { .a = YGNodeStyleSet ## P }
-#define POSITION_PROP(P)    { .p = YGNodeStyleGet    ## P }, "YGNodeStyleSet" #P, { .p = YGNodeStyleSet ## P }
-#define WRAP_PROP(P)        { .w = YGNodeStyleGet    ## P }, "YGNodeStyleSet" #P, { .w = YGNodeStyleSet ## P }
-#define OVERFLOW_PROP(P)    { .o = YGNodeStyleGet    ## P }, "YGNodeStyleSet" #P, { .o = YGNodeStyleSet ## P }
-#define DISPLAY_PROP(P)     { .disp = YGNodeStyleGet ## P }, "YGNodeStyleSet" #P, { .disp = YGNodeStyleSet ## P }
-
-void NodeGetContext(YGNodeConstRef, char*, size_t);
-void NodeSetContext(YGNodeRef, const char*);
-void NodeGetLabel(YGNodeConstRef, char*, size_t);
-void NodeSetLabel(YGNodeRef, const char*);
-
-static Property gProperties[] =
-{
-    { "width", PROPERTY_TYPE_VALUE, VALUE_PROP(Width) },
-    { "height", PROPERTY_TYPE_VALUE, VALUE_PROP(Height) },
-    { "min-width", PROPERTY_TYPE_VALUE, { .v = YGNodeStyleGetMinWidth }, "YGNodeStyleSetMinWidth", { .v = { .point =  YGNodeStyleSetMinWidth, .percent = YGNodeStyleSetMinWidthPercent, .auto_ = NULL } } },
-    { "min-height", PROPERTY_TYPE_VALUE, { .v = YGNodeStyleGetMinHeight }, "YGNodeStyleSetMinHeight", { .v = { .point =  YGNodeStyleSetMinHeight, .percent = YGNodeStyleSetMinHeightPercent, .auto_ = NULL } } },
-    { "max-width", PROPERTY_TYPE_VALUE, { .v = YGNodeStyleGetMaxWidth }, "YGNodeStyleSetMaxWidth", { .v = { .point =  YGNodeStyleSetMaxWidth, .percent = YGNodeStyleSetMaxWidthPercent, .auto_ = NULL } } },
-    { "max-height", PROPERTY_TYPE_VALUE, { .v = YGNodeStyleGetMaxHeight }, "YGNodeStyleSetMaxHeight", { .v = { .point =  YGNodeStyleSetMaxHeight, .percent = YGNodeStyleSetMaxHeightPercent, .auto_ = NULL } } },
-    { "flex", PROPERTY_TYPE_FLOAT, FLOAT_PROP(Flex) },
-    { "flex-grow", PROPERTY_TYPE_FLOAT, FLOAT_PROP(FlexGrow) },
-    { "flex-shrink", PROPERTY_TYPE_FLOAT, FLOAT_PROP(FlexShrink) },
-    { "basis", PROPERTY_TYPE_VALUE, VALUE_PROP(FlexBasis) },
-    { "position", PROPERTY_TYPE_EDGE_VALUE, { .ev = YGNodeStyleGetPosition }, "YGNodeStyleSetPosition", { .ev = { .point = YGNodeStyleSetPosition, .percent = YGNodeStyleSetPositionPercent, .auto_ = NULL } } },
-    { "flex-direction", PROPERTY_TYPE_DIRECTION, DIRECTION_PROP(FlexDirection) },
-    { "margin", PROPERTY_TYPE_EDGE_VALUE, EDGE_VALUE_PROP(Margin) },
-    { "padding", PROPERTY_TYPE_EDGE_VALUE, { .ev = YGNodeStyleGetPadding }, "YGNodeStyleSetPadding", { .ev = { .point = YGNodeStyleSetPadding, .percent = YGNodeStyleSetPaddingPercent, .auto_ = NULL } } },
-    { "border", PROPERTY_TYPE_EDGE_FLOAT, EDGE_FLOAT_PROP(Border) },
-    { "justify-content", PROPERTY_TYPE_JUSTIFY, JUSTIFY_PROP(JustifyContent) },
-    { "align-content", PROPERTY_TYPE_ALIGN, ALIGN_PROP(AlignContent) },
-    { "align-items", PROPERTY_TYPE_ALIGN, ALIGN_PROP(AlignItems) },
-    { "align-self", PROPERTY_TYPE_ALIGN, ALIGN_PROP(AlignSelf) },
-    { "position-type", PROPERTY_TYPE_POSITION, POSITION_PROP(PositionType) },
-    { "flex-wrap", PROPERTY_TYPE_WRAP, WRAP_PROP(FlexWrap) },
-    { "overflow", PROPERTY_TYPE_OVERFLOW, OVERFLOW_PROP(Overflow) },
-    { "display", PROPERTY_TYPE_DISPLAY, DISPLAY_PROP(Display) },
-    { "aspect-ratio", PROPERTY_TYPE_FLOAT, FLOAT_PROP(AspectRatio) },
-    { "HWND", PROPERTY_TYPE_STRING, { .str = NodeGetContext }, "SetFlexHWND",  { .str = NodeSetContext } },
-    { "label", PROPERTY_TYPE_STRING, { .str = NodeGetLabel }, "SetFlexLabel",  { .str = NodeSetLabel } },
-    { NULL },
-};
 
 #define DUMP_FLEX(label, flex) \
     TRACE("%s: %3d %3d %3d %3d", \
@@ -1296,6 +1143,11 @@ static void OnGenerate(const AppState* appState, HWND hwnd)
     SendMessage(hCodeWin, WM_SETFONT, (WPARAM)appState->hFont, TRUE);
 }
 
+void OnSave(AppState* appState, HWND hwnd)
+{
+    SerializeNode("C:\\Projects\\Layout.json", appState->rootFlex);
+}
+
 static void OnCommand(AppState* appState, HWND hwnd, HWND hButton, unsigned buttonID)
 {
     switch (buttonID)
@@ -1305,6 +1157,9 @@ static void OnCommand(AppState* appState, HWND hwnd, HWND hButton, unsigned butt
         break;
     case IDM_FLEX_REMOVE:
         OnRemove(appState, hwnd);
+        break;
+    case IDM_FILE_SAVE:
+        OnSave(appState, hwnd);
         break;
     case IDM_FILE_GENERATE:
         OnGenerate(appState, hwnd);
@@ -1355,16 +1210,28 @@ static void OnValueViewChanged(AppState* appState, HWND hwnd, HWND hControl, YGV
             switch (newValue.unit)
             {
             case YGUnitUndefined:
-                prop->setter.v.point(node, NAN);
+                if (prop->setter.v.point)
+                {
+                    prop->setter.v.point(node, NAN);
+                }
                 break;
             case YGUnitPoint:
-                prop->setter.v.point(node, newValue.value);
+                if (prop->setter.v.point)
+                {
+                    prop->setter.v.point(node, newValue.value);
+                }
                 break;
             case YGUnitPercent:
-                prop->setter.v.percent(node, newValue.value);
+                if (prop->setter.v.percent)
+                {
+                    prop->setter.v.percent(node, newValue.value);
+                }
                 break;
             case YGUnitAuto:
-                prop->setter.v.auto_(node);
+                if (prop->setter.v.auto_)
+                {
+                    prop->setter.v.auto_(node);
+                }
                 break;
             default:
                 assert(!"Invalid code path");

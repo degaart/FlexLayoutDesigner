@@ -222,5 +222,185 @@ uint32_t InvertColor(uint32_t color)
     return 0x00FFFFFF;
 }
 
+void EnumNodeProperties(YGNodeConstRef node, EnumPropertiesParams* params)
+{
+    float fValue;
+    YGValue ygValue;
+    const char* valueName;
+    char sValue[128];
 
+    assert(node != NULL);
+    for (Property* prop = gProperties; prop->name; prop++)
+    {
+        switch (prop->type)
+        {
+        case PROPERTY_TYPE_FLOAT:
+            fValue = prop->getter.f(node);
+            if (fcomp(fValue, prop->default_.f))
+            {
+                params->onFloat(params, prop, node, fValue);
+            }
+            break;
+        case PROPERTY_TYPE_VALUE:
+            ygValue = prop->getter.v(node);
+            if (vcomp(ygValue, prop->default_.v))
+            {
+                params->onValue(params, prop, node, ygValue);
+            }
+            break;
+        case PROPERTY_TYPE_ALIGN:
+            if (prop->getter.a(node) != prop->default_.a)
+            {
+                switch (prop->getter.a(node))
+                {
+                ENUM_STRING_CASE(valueName, YGAlignAuto);
+                ENUM_STRING_CASE(valueName, YGAlignFlexStart);
+                ENUM_STRING_CASE(valueName, YGAlignCenter);
+                ENUM_STRING_CASE(valueName, YGAlignFlexEnd);
+                ENUM_STRING_CASE(valueName, YGAlignStretch);
+                ENUM_STRING_CASE(valueName, YGAlignBaseline);
+                ENUM_STRING_CASE(valueName, YGAlignSpaceBetween);
+                ENUM_STRING_CASE(valueName, YGAlignSpaceAround);
+                UNHANDLED_CASE();
+                }
+                params->onAlign(params, prop, node, prop->getter.a(node), valueName);
+            }
+            break;
+        case PROPERTY_TYPE_POSITION:
+            if (prop->getter.p(node) != prop->default_.p)
+            {
+                switch (prop->getter.p(node))
+                {
+                ENUM_STRING_CASE(valueName, YGPositionTypeStatic);
+                ENUM_STRING_CASE(valueName, YGPositionTypeRelative);
+                ENUM_STRING_CASE(valueName, YGPositionTypeAbsolute);
+                UNHANDLED_CASE();
+                }
+                params->onPosition(params, prop, node, prop->getter.p(node), valueName);
+            }
+            break;
+        case PROPERTY_TYPE_DIRECTION:
+            if (prop->getter.d(node) != prop->default_.d)
+            {
+                switch (prop->getter.d(node))
+                {
+                ENUM_STRING_CASE(valueName, YGFlexDirectionColumn);
+                ENUM_STRING_CASE(valueName, YGFlexDirectionColumnReverse);
+                ENUM_STRING_CASE(valueName, YGFlexDirectionRow);
+                ENUM_STRING_CASE(valueName, YGFlexDirectionRowReverse);
+                UNHANDLED_CASE();
+                }
+                params->onDirection(params, prop, node, prop->getter.d(node), valueName);
+            }
+            break;
+        case PROPERTY_TYPE_WRAP:
+            if (prop->getter.w(node) != prop->default_.w)
+            {
+                switch (prop->getter.w(node))
+                {
+                ENUM_STRING_CASE(valueName, YGWrapNoWrap);
+                ENUM_STRING_CASE(valueName, YGWrapWrap);
+                ENUM_STRING_CASE(valueName, YGWrapWrapReverse);
+                UNHANDLED_CASE();
+                }
+                params->onWrap(params, prop, node, prop->getter.w(node), valueName);
+            }
+            break;
+        case PROPERTY_TYPE_EDGE_VALUE:
+            for (int i = YGEdgeLeft; i <= YGEdgeBottom; i++)
+            {
+                ygValue = prop->getter.ev(node, i);
+                if (vcomp(ygValue, prop->default_.ev[i]))
+                {
+                    switch (i)
+                    {
+                    ENUM_STRING_CASE(valueName, YGEdgeLeft);
+                    ENUM_STRING_CASE(valueName, YGEdgeRight);
+                    ENUM_STRING_CASE(valueName, YGEdgeTop);
+                    ENUM_STRING_CASE(valueName, YGEdgeBottom);
+                    UNHANDLED_CASE();
+                    }
+
+                    params->onEdgeValue(params, prop, node, i, valueName, ygValue);
+                }
+            }
+            break;
+        case PROPERTY_TYPE_EDGE_FLOAT:
+            for (int i = YGEdgeLeft; i <= YGEdgeBottom; i++)
+            {
+                switch (i)
+                {
+                ENUM_STRING_CASE(valueName, YGEdgeLeft);
+                ENUM_STRING_CASE(valueName, YGEdgeRight);
+                ENUM_STRING_CASE(valueName, YGEdgeTop);
+                ENUM_STRING_CASE(valueName, YGEdgeBottom);
+                UNHANDLED_CASE();
+                }
+
+                if (fcomp(prop->getter.ef(node, i), prop->default_.ef[i]))
+                {
+                    params->onEdgeFloat(params, prop, node, i, valueName, prop->getter.ef(node, i));
+                }
+            }
+            break;
+        case PROPERTY_TYPE_JUSTIFY:
+            if (prop->getter.j(node) != prop->default_.j)
+            {
+                switch (prop->getter.j(node))
+                {
+                ENUM_STRING_CASE(valueName, YGJustifyFlexStart);
+                ENUM_STRING_CASE(valueName, YGJustifyCenter);
+                ENUM_STRING_CASE(valueName, YGJustifyFlexEnd);
+                ENUM_STRING_CASE(valueName, YGJustifySpaceBetween);
+                ENUM_STRING_CASE(valueName, YGJustifySpaceAround);
+                ENUM_STRING_CASE(valueName, YGJustifySpaceEvenly);
+                UNHANDLED_CASE();
+                }
+                params->onJustify(params, prop, node, prop->getter.j(node), valueName);
+            }
+            break;
+        case PROPERTY_TYPE_OVERFLOW:
+            if (prop->getter.o(node) != prop->default_.o)
+            {
+                switch (prop->getter.o(node))
+                {
+                ENUM_STRING_CASE(valueName, YGOverflowVisible);
+                ENUM_STRING_CASE(valueName, YGOverflowHidden);
+                ENUM_STRING_CASE(valueName, YGOverflowScroll);
+                UNHANDLED_CASE();
+                }
+                params->onOverflow(params, prop, node, prop->getter.o(node), valueName);
+            }
+            break;
+        case PROPERTY_TYPE_DISPLAY:
+            if (prop->getter.disp(node) != prop->default_.disp)
+            {
+                switch (prop->getter.disp(node))
+                {
+                ENUM_STRING_CASE(valueName, YGDisplayFlex);
+                ENUM_STRING_CASE(valueName, YGDisplayNone);
+                UNHANDLED_CASE();
+                }
+                params->onDisplay(params, prop, node, prop->getter.disp(node), valueName);
+            }
+            break;
+        case PROPERTY_TYPE_STRING:
+            prop->getter.str(node, sValue, sizeof(sValue));
+            if (strcmp(sValue, prop->default_.str))
+            {
+                params->onString(params, prop, node, sValue);
+            }
+            break;
+        default:
+            assert(!"Unhandled case value");
+        }
+    }
+
+    unsigned childCount = YGNodeGetChildCount((YGNodeRef)node);
+    for (unsigned i = 0; i < childCount; i++)
+    {
+        YGNodeRef child = YGNodeGetChild((YGNodeRef)node, i);
+        params->onChildNode(params, node, child);
+    }
+}
 
