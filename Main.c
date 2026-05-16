@@ -1769,39 +1769,8 @@ static bool InitInstance(HINSTANCE hInstance, INT nShowCmd, AppState* appState)
     return true;
 }
 
-typedef struct TestState
-{
-    YGNodeRef flex;
-    struct
-    {
-        YGNodeRef flex;
-        YGNodeRef labelFlex;
-        YGNodeRef controlFlex;
-    } controls[4];
-} TestState;
-
-static void Mangery_Write(CodeStream* stream, const char* fmt, ...)
-{
-    va_list args;
-    va_start(args, fmt);
-
-    char buffer[1024];
-    vsnprintf(buffer, sizeof(buffer), fmt, args);
-
-    va_end(args);
-}
-
 static void UnitTest(void)
 {
-    CodeStream* stream = CodeStream_Create();
-
-    CodeStream_Write(stream, " all your %s are belong", "base");
-    CodeStream_Write(stream, "1");
-    CodeStream_Write(stream, "%d US %s %0.f 0x%08X", 420, "yvonne chaka chaka", 3.14f, 0xDEADBEEF);
-
-    TRACE("%s", CodeStream_Get(stream));
-
-    CodeStream_Destroy(stream);
 }
 
 INT WINAPI WinMain(HINSTANCE hInstance,
