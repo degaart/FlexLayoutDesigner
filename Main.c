@@ -27,7 +27,7 @@
 
 enum ButtonIDs
 {
-    IDM_FILE_NEW,
+    IDM_FILE_NEW = 101,
     IDM_FILE_OPEN,
     IDM_FILE_SAVE,
     IDM_FILE_SAVE_AS,
@@ -1252,6 +1252,31 @@ static void OnOpen(AppState* appState, HWND hwnd)
     InvalidateRect(appState->hLayoutView, NULL, TRUE);
 }
 
+static void OnNew(AppState* appState, HWND hwnd)
+{
+    DestroyNode(appState->rootFlex);
+    TreeView_DeleteAllItems(appState->hLayoutTree);
+
+    appState->index = 0;
+    appState->filename[0] = '\0';
+    appState->hRootTreeItem = NULL;
+    appState->rootFlex = NULL;
+    SetWindowText(hwnd, APPNAME);
+
+    appState->rootFlex = CreateNode(NULL, appState->index++);
+    appState->hRootTreeItem = CreateTreeItems(appState->hLayoutTree, NULL, appState->rootFlex);
+
+    RECT rc;
+    GetClientRect(appState->hLayoutView, &rc);
+
+    YGNodeStyleSetWidth(appState->rootFlex, rc.right - rc.left);
+    YGNodeStyleSetHeight(appState->rootFlex, rc.bottom - rc.top);
+    YGNodeCalculateLayout(appState->rootFlex, YGUndefined, YGUndefined, YGDirectionLTR);
+
+    LayoutView_SetRootFlex(appState->hLayoutView, appState->rootFlex);
+    InvalidateRect(appState->hLayoutView, NULL, TRUE);
+}
+
 static void OnCommand(AppState* appState, HWND hwnd, HWND hButton, unsigned buttonID)
 {
     switch (buttonID)
@@ -1261,6 +1286,9 @@ static void OnCommand(AppState* appState, HWND hwnd, HWND hButton, unsigned butt
         break;
     case IDM_FLEX_REMOVE:
         OnRemove(appState, hwnd);
+        break;
+    case IDM_FILE_NEW:
+        OnNew(appState, hwnd);
         break;
     case IDM_FILE_OPEN:
         OnOpen(appState, hwnd);
@@ -1698,17 +1726,17 @@ static bool InitInstance(HINSTANCE hInstance, INT nShowCmd, AppState* appState)
 
     HMENU hFileMenu = CreatePopupMenu();
     AppendMenu(hFileMenu, MF_STRING, IDM_FILE_NEW, "&New");
-    AppendMenu(hFileMenu, MF_STRING, IDM_FILE_OPEN, "&Open");
+    AppendMenu(hFileMenu, MF_STRING, IDM_FILE_OPEN, "&Open...");
     AppendMenu(hFileMenu, MF_STRING, IDM_FILE_SAVE, "&Save");
-    AppendMenu(hFileMenu, MF_STRING, IDM_FILE_SAVE_AS, "S&ave as...");
+    AppendMenu(hFileMenu, MF_STRING, IDM_FILE_SAVE_AS, "S&ave As...");
     AppendMenu(hFileMenu, MF_SEPARATOR, 0, NULL);
-    AppendMenu(hFileMenu, MF_STRING, IDM_FILE_GENERATE, "&Generate code");
+    AppendMenu(hFileMenu, MF_STRING, IDM_FILE_GENERATE, "&Generate Code");
     AppendMenu(hFileMenu, MF_SEPARATOR, 0, NULL);
     AppendMenu(hFileMenu, MF_STRING, IDM_FILE_EXIT, "E&xit");
     AppendMenu(hMenuBar, MF_POPUP, (UINT_PTR)hFileMenu, "&File");
 
     HMENU hFlexMenu = CreatePopupMenu();
-    AppendMenu(hFlexMenu, MF_STRING, IDM_FLEX_ADD, "&Add child");
+    AppendMenu(hFlexMenu, MF_STRING, IDM_FLEX_ADD, "&Add Child");
     AppendMenu(hFlexMenu, MF_STRING, IDM_FLEX_REMOVE, "&Remove");
     AppendMenu(hMenuBar, MF_POPUP, (UINT_PTR)hFlexMenu, "F&lex");
             
