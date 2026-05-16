@@ -51,6 +51,7 @@ typedef struct AppState
     int blockUpdates;
     YGNodeRef propsFlex;
     YGNodeRef editorFlex;
+    char filename[MAX_PATH];
 } AppState;
 
 #define DUMP_FLEX(label, flex) \
@@ -1152,6 +1153,23 @@ static void OnGenerate(const AppState* appState, HWND hwnd)
 
 static void OnSave(AppState* appState, HWND hwnd)
 {
+    if (!strlen(appState->filename))
+    {
+        if (!SaveFileDialog(hwnd, appState->filename, sizeof(appState->filename)))
+        {
+            return;
+        }
+    }
+
+    if (SaveLayout(appState->filename, appState->rootFlex, appState->index) != SERIALIZATION_OK)
+    {
+        MessageBox(hwnd, "Save failed", "Error", MB_OK|MB_ICONERROR);
+        return;
+    }
+}
+
+static void OnSaveAs(AppState* appState, HWND hwnd)
+{
     char filename[MAX_PATH];
     if (!SaveFileDialog(hwnd, filename, sizeof(filename)))
     {
@@ -1163,6 +1181,13 @@ static void OnSave(AppState* appState, HWND hwnd)
         MessageBox(hwnd, "Save failed", "Error", MB_OK|MB_ICONERROR);
         return;
     }
+
+    strcpy_s(appState->filename, sizeof(appState->filename), filename);
+
+    PathStripPath(filename);
+    char windowTitle[MAX_PATH + 32];
+    snprintf(windowTitle, sizeof(windowTitle), "%s - %s", APPNAME, filename);
+    SetWindowText(hwnd, windowTitle);
 }
 
 static HTREEITEM CreateTreeItems(HWND hTree, HTREEITEM parentTreeItem, YGNodeRef node)
@@ -1203,6 +1228,13 @@ static void OnOpen(AppState* appState, HWND hwnd)
         return;
     }
 
+    strcpy_s(appState->filename, sizeof(appState->filename), filename);
+
+    PathStripPath(filename);
+    char windowTitle[MAX_PATH + 32];
+    snprintf(windowTitle, sizeof(windowTitle), "%s - %s", APPNAME, filename);
+    SetWindowText(hwnd, windowTitle);
+
     DestroyNode(appState->rootFlex);
     TreeView_DeleteAllItems(appState->hLayoutTree);
 
@@ -1235,6 +1267,9 @@ static void OnCommand(AppState* appState, HWND hwnd, HWND hButton, unsigned butt
         break;
     case IDM_FILE_SAVE:
         OnSave(appState, hwnd);
+        break;
+    case IDM_FILE_SAVE_AS:
+        OnSaveAs(appState, hwnd);
         break;
     case IDM_FILE_GENERATE:
         OnGenerate(appState, hwnd);
