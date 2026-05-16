@@ -11,7 +11,10 @@
 #include "Util.h"
 #include "ValueView.h"
 #include <CommCtrl.h>
+#include <Shlwapi.h>
 #include <Windows.h>
+#include <ShlObj.h>
+#include <combaseapi.h>
 #include <assert.h>
 #include <math.h>
 #include <stdbool.h>
@@ -656,13 +659,13 @@ static YGNodeRef CreateNode(YGNodeRef parent, int index)
     return node;
 }
 
-static void DestroyNode(YGNodeRef node)
+static void DestroyNodeContext(YGNodeRef node)
 {
     int childCount = YGNodeGetChildCount(node);
     for (int i = 0; i < childCount; i++)
     {
         YGNodeRef child = YGNodeGetChild(node, i);
-        DestroyNode(child);
+        DestroyNodeContext(child);
     }
 
     NodeContext* ctx = YGNodeGetContext(node);
@@ -670,8 +673,12 @@ static void DestroyNode(YGNodeRef node)
     {
         free(ctx);
     }
+}
 
-    YGNodeFree(node);
+static void DestroyNode(YGNodeRef node)
+{
+    DestroyNodeContext(node);
+    YGNodeFreeRecursive(node);
 }
 
 static void OnCreate(HWND hwnd, AppState* appState)
@@ -1143,9 +1150,74 @@ static void OnGenerate(const AppState* appState, HWND hwnd)
     SendMessage(hCodeWin, WM_SETFONT, (WPARAM)appState->hFont, TRUE);
 }
 
-void OnSave(AppState* appState, HWND hwnd)
+static void OnSave(AppState* appState, HWND hwnd)
 {
-    SerializeNode("C:\\Projects\\Layout.json", appState->rootFlex);
+    char filename[MAX_PATH];
+    if (!SaveFileDialog(hwnd, filename, sizeof(filename)))
+    {
+        return;
+    }
+
+    if (SaveLayout(filename, appState->rootFlex, appState->index) != SERIALIZATION_OK)
+    {
+        MessageBox(hwnd, "Save failed", "Error", MB_OK|MB_ICONERROR);
+        return;
+    }
+}
+
+static HTREEITEM CreateTreeItems(HWND hTree, HTREEITEM parentTreeItem, YGNodeRef node)
+{
+    assert(node != NULL);
+
+    NodeContext* ctx = YGNodeGetContext(node);
+    assert(ctx != NULL);
+
+    HTREEITEM treeItem = InsertTreeItem(hTree,
+            parentTreeItem,
+            ctx->label,
+            node);
+    ctx->hTree = hTree;
+    ctx->hTreeItem = treeItem;
+
+    unsigned childCount = YGNodeGetChildCount(node);
+    for (unsigned i = 0; i < childCount; i++)
+    {
+        CreateTreeItems(hTree, treeItem, YGNodeGetChild(node, i));
+    }
+
+    return treeItem;
+}
+
+static void OnOpen(AppState* appState, HWND hwnd)
+{
+    char filename[MAX_PATH];
+    if (!OpenFileDialog(hwnd, filename, sizeof(filename)))
+    {
+        return;
+    }
+
+    YGNodeRef node;
+    if (LoadLayout(filename, &node, &appState->index) != SERIALIZATION_OK)
+    {
+        MessageBox(hwnd, "Open failed", "Error", MB_OK|MB_ICONERROR);
+        return;
+    }
+
+    DestroyNode(appState->rootFlex);
+    TreeView_DeleteAllItems(appState->hLayoutTree);
+
+    appState->rootFlex = node;
+    appState->hRootTreeItem = CreateTreeItems(appState->hLayoutTree, NULL, appState->rootFlex);
+
+    RECT rc;
+    GetClientRect(appState->hLayoutView, &rc);
+
+    YGNodeStyleSetWidth(appState->rootFlex, rc.right - rc.left);
+    YGNodeStyleSetHeight(appState->rootFlex, rc.bottom - rc.top);
+    YGNodeCalculateLayout(appState->rootFlex, YGUndefined, YGUndefined, YGDirectionLTR);
+
+    LayoutView_SetRootFlex(appState->hLayoutView, appState->rootFlex);
+    InvalidateRect(appState->hLayoutView, NULL, TRUE);
 }
 
 static void OnCommand(AppState* appState, HWND hwnd, HWND hButton, unsigned buttonID)
@@ -1157,6 +1229,9 @@ static void OnCommand(AppState* appState, HWND hwnd, HWND hButton, unsigned butt
         break;
     case IDM_FLEX_REMOVE:
         OnRemove(appState, hwnd);
+        break;
+    case IDM_FILE_OPEN:
+        OnOpen(appState, hwnd);
         break;
     case IDM_FILE_SAVE:
         OnSave(appState, hwnd);
@@ -1671,6 +1746,8 @@ INT WINAPI WinMain(HINSTANCE hInstance,
                    LPSTR lpCmdLine,
                    INT nShowCmd)
 {
+    CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
+
     UnitTest();
 
     AppState appState = {0};

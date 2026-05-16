@@ -1,8 +1,15 @@
+#define COBJMACROS
+#define CINTERFACE
+
 #include "Util.h"
 
 #include "Trace.h"
-#include <stdlib.h>
 #include <errno.h>
+#include <shobjidl.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <windows.h>
 
 bool ParseFloat(const char* s, float* out)
 {
@@ -222,7 +229,7 @@ uint32_t InvertColor(uint32_t color)
     return 0x00FFFFFF;
 }
 
-void EnumNodeProperties(YGNodeConstRef node, EnumPropertiesParams* params)
+void EnumNodeProperties(YGNodeConstRef node, EnumPropertiesParams* params, bool ignoreDefault)
 {
     float fValue;
     YGValue ygValue;
@@ -236,20 +243,20 @@ void EnumNodeProperties(YGNodeConstRef node, EnumPropertiesParams* params)
         {
         case PROPERTY_TYPE_FLOAT:
             fValue = prop->getter.f(node);
-            if (fcomp(fValue, prop->default_.f))
+            if (!ignoreDefault || fcomp(fValue, prop->default_.f))
             {
                 params->onFloat(params, prop, node, fValue);
             }
             break;
         case PROPERTY_TYPE_VALUE:
             ygValue = prop->getter.v(node);
-            if (vcomp(ygValue, prop->default_.v))
+            if (!ignoreDefault || vcomp(ygValue, prop->default_.v))
             {
                 params->onValue(params, prop, node, ygValue);
             }
             break;
         case PROPERTY_TYPE_ALIGN:
-            if (prop->getter.a(node) != prop->default_.a)
+            if (!ignoreDefault || prop->getter.a(node) != prop->default_.a)
             {
                 switch (prop->getter.a(node))
                 {
@@ -267,7 +274,7 @@ void EnumNodeProperties(YGNodeConstRef node, EnumPropertiesParams* params)
             }
             break;
         case PROPERTY_TYPE_POSITION:
-            if (prop->getter.p(node) != prop->default_.p)
+            if (!ignoreDefault || prop->getter.p(node) != prop->default_.p)
             {
                 switch (prop->getter.p(node))
                 {
@@ -280,7 +287,7 @@ void EnumNodeProperties(YGNodeConstRef node, EnumPropertiesParams* params)
             }
             break;
         case PROPERTY_TYPE_DIRECTION:
-            if (prop->getter.d(node) != prop->default_.d)
+            if (!ignoreDefault || prop->getter.d(node) != prop->default_.d)
             {
                 switch (prop->getter.d(node))
                 {
@@ -294,7 +301,7 @@ void EnumNodeProperties(YGNodeConstRef node, EnumPropertiesParams* params)
             }
             break;
         case PROPERTY_TYPE_WRAP:
-            if (prop->getter.w(node) != prop->default_.w)
+            if (!ignoreDefault || prop->getter.w(node) != prop->default_.w)
             {
                 switch (prop->getter.w(node))
                 {
@@ -310,7 +317,7 @@ void EnumNodeProperties(YGNodeConstRef node, EnumPropertiesParams* params)
             for (int i = YGEdgeLeft; i <= YGEdgeBottom; i++)
             {
                 ygValue = prop->getter.ev(node, i);
-                if (vcomp(ygValue, prop->default_.ev[i]))
+                if (!ignoreDefault || vcomp(ygValue, prop->default_.ev[i]))
                 {
                     switch (i)
                     {
@@ -337,14 +344,14 @@ void EnumNodeProperties(YGNodeConstRef node, EnumPropertiesParams* params)
                 UNHANDLED_CASE();
                 }
 
-                if (fcomp(prop->getter.ef(node, i), prop->default_.ef[i]))
+                if (!ignoreDefault || fcomp(prop->getter.ef(node, i), prop->default_.ef[i]))
                 {
                     params->onEdgeFloat(params, prop, node, i, valueName, prop->getter.ef(node, i));
                 }
             }
             break;
         case PROPERTY_TYPE_JUSTIFY:
-            if (prop->getter.j(node) != prop->default_.j)
+            if (!ignoreDefault || prop->getter.j(node) != prop->default_.j)
             {
                 switch (prop->getter.j(node))
                 {
@@ -360,7 +367,7 @@ void EnumNodeProperties(YGNodeConstRef node, EnumPropertiesParams* params)
             }
             break;
         case PROPERTY_TYPE_OVERFLOW:
-            if (prop->getter.o(node) != prop->default_.o)
+            if (!ignoreDefault || prop->getter.o(node) != prop->default_.o)
             {
                 switch (prop->getter.o(node))
                 {
@@ -373,7 +380,7 @@ void EnumNodeProperties(YGNodeConstRef node, EnumPropertiesParams* params)
             }
             break;
         case PROPERTY_TYPE_DISPLAY:
-            if (prop->getter.disp(node) != prop->default_.disp)
+            if (!ignoreDefault || prop->getter.disp(node) != prop->default_.disp)
             {
                 switch (prop->getter.disp(node))
                 {
@@ -386,7 +393,7 @@ void EnumNodeProperties(YGNodeConstRef node, EnumPropertiesParams* params)
             break;
         case PROPERTY_TYPE_STRING:
             prop->getter.str(node, sValue, sizeof(sValue));
-            if (strcmp(sValue, prop->default_.str))
+            if (!ignoreDefault || strcmp(sValue, prop->default_.str))
             {
                 params->onString(params, prop, node, sValue);
             }
@@ -402,5 +409,265 @@ void EnumNodeProperties(YGNodeConstRef node, EnumPropertiesParams* params)
         YGNodeRef child = YGNodeGetChild((YGNodeRef)node, i);
         params->onChildNode(params, node, child);
     }
+}
+
+static const COMDLG_FILTERSPEC filters[] =
+{
+    { L"JSON Files (*.json)", L"*.json" },
+    { L"All Files (*.*)",     L"*.*"    }
+};
+
+bool OpenFileDialog(HWND hParent, char* buffer, size_t bufferSize)
+{
+    HRESULT hr;
+    IFileDialog* pfd = NULL;
+    IShellItem* psiResult = NULL;
+    PWSTR widePath = NULL;
+    bool result = false;
+
+    if (!buffer || bufferSize == 0)
+    {
+        return false;
+    }
+
+    buffer[0] = '\0';
+    hr = CoCreateInstance(
+        &CLSID_FileOpenDialog,
+        NULL,
+        CLSCTX_INPROC_SERVER,
+        &IID_IFileDialog,
+        (void**)&pfd);
+    if (FAILED(hr))
+    {
+        goto cleanup;
+    }
+
+    hr = IFileDialog_SetFileTypes(
+        pfd,
+        ARRAYSIZE(filters),
+        filters);
+    if (FAILED(hr))
+    {
+        goto cleanup;
+    }
+
+    hr = IFileDialog_SetFileTypeIndex(pfd, 1);
+    if (FAILED(hr))
+    {
+        goto cleanup;
+    }
+
+    {
+        DWORD flags = 0;
+
+        hr = IFileDialog_GetOptions(pfd, &flags);
+        if (FAILED(hr))
+        {
+            goto cleanup;
+        }
+
+        hr = IFileDialog_SetOptions(
+            pfd,
+            flags | FOS_FORCEFILESYSTEM);
+        if (FAILED(hr))
+        {
+            goto cleanup;
+        }
+    }
+
+    hr = IFileDialog_Show(pfd, hParent);
+    if (FAILED(hr))
+    {
+        goto cleanup;
+    }
+
+    hr = IFileDialog_GetResult(pfd, &psiResult);
+    if (FAILED(hr))
+    {
+        goto cleanup;
+    }
+
+    hr = IShellItem_GetDisplayName(
+        psiResult,
+        SIGDN_FILESYSPATH,
+        &widePath);
+    if (FAILED(hr))
+    {
+        goto cleanup;
+    }
+
+    {
+        int written = WideCharToMultiByte(
+            CP_UTF8,
+            0,
+            widePath,
+            -1,
+            buffer,
+            (int)bufferSize,
+            NULL,
+            NULL);
+        if (written == 0)
+        {
+            goto cleanup;
+        }
+    }
+
+    result = true;
+
+cleanup:
+
+    if (widePath)
+    {
+        CoTaskMemFree(widePath);
+    }
+
+    if (psiResult)
+    {
+        IShellItem_Release(psiResult);
+    }
+
+    if (pfd)
+    {
+        IFileDialog_Release(pfd);
+    }
+
+    return result;
+}
+
+bool SaveFileDialog(HWND hParent, char* buffer, size_t bufferSize)
+{
+    HRESULT hr;
+    IFileDialog* pfd = NULL;
+    IShellItem* psiResult = NULL;
+    PWSTR widePath = NULL;
+    bool result = false;
+
+    if (!buffer || bufferSize == 0)
+    {
+        return false;
+    }
+
+    buffer[0] = '\0';
+    hr = CoCreateInstance(
+        &CLSID_FileSaveDialog,
+        NULL,
+        CLSCTX_INPROC_SERVER,
+        &IID_IFileDialog,
+        (void**)&pfd);
+    if (FAILED(hr))
+    {
+        goto cleanup;
+    }
+
+    {
+        DWORD flags = 0;
+        hr = IFileDialog_GetOptions(pfd, &flags);
+        if (FAILED(hr))
+        {
+            goto cleanup;
+        }
+
+        hr = IFileDialog_SetOptions(
+            pfd,
+            flags |
+            FOS_FORCEFILESYSTEM |
+            FOS_OVERWRITEPROMPT);
+        if (FAILED(hr))
+        {
+            goto cleanup;
+        }
+    }
+
+    hr = IFileDialog_SetFileTypes(
+        pfd,
+        ARRAYSIZE(filters),
+        filters);
+    if (FAILED(hr))
+    {
+        goto cleanup;
+    }
+
+    hr = IFileDialog_SetFileTypeIndex(pfd, 1);
+    if (FAILED(hr))
+    {
+        goto cleanup;
+    }
+
+    hr = IFileDialog_SetDefaultExtension(
+        pfd,
+        L"json");
+    if (FAILED(hr))
+    {
+        goto cleanup;
+    }
+
+    hr = IFileDialog_SetFileName(
+        pfd,
+        L"untitled.json");
+    if (FAILED(hr))
+    {
+        goto cleanup;
+    }
+
+    hr = IFileDialog_Show(pfd, hParent);
+    if (FAILED(hr))
+    {
+        goto cleanup;
+    }
+
+    hr = IFileDialog_GetResult(
+        pfd,
+        &psiResult);
+    if (FAILED(hr))
+    {
+        goto cleanup;
+    }
+
+    hr = IShellItem_GetDisplayName(
+        psiResult,
+        SIGDN_FILESYSPATH,
+        &widePath);
+    if (FAILED(hr))
+    {
+        goto cleanup;
+    }
+
+    {
+        int written = WideCharToMultiByte(
+            CP_UTF8,
+            0,
+            widePath,
+            -1,
+            buffer,
+            (int)bufferSize,
+            NULL,
+            NULL);
+
+        if (written == 0)
+        {
+            goto cleanup;
+        }
+    }
+
+    result = true;
+
+cleanup:
+
+    if (widePath)
+    {
+        CoTaskMemFree(widePath);
+    }
+
+    if (psiResult)
+    {
+        IShellItem_Release(psiResult);
+    }
+
+    if (pfd)
+    {
+        IFileDialog_Release(pfd);
+    }
+
+    return result;
 }
 

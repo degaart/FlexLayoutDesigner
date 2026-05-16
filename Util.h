@@ -33,6 +33,8 @@ uint32_t GenerateColor(int index);
 int fcomp(float a, float b);
 int vcomp(YGValue a, YGValue b);
 uint32_t InvertColor(uint32_t color);
+bool OpenFileDialog(HWND hParent, char* buffer, size_t bufferSize);
+bool SaveFileDialog(HWND hParent, char* buffer, size_t bufferSize);
 
 struct EnumPropertiesParams;
 typedef struct EnumPropertiesParams EnumPropertiesParams;
@@ -55,5 +57,5 @@ struct EnumPropertiesParams
     void (*onChildNode)(EnumPropertiesParams*, YGNodeConstRef, YGNodeConstRef);
     void* ctx;
 };
-void EnumNodeProperties(YGNodeConstRef node, EnumPropertiesParams* params);
+void EnumNodeProperties(YGNodeConstRef node, EnumPropertiesParams* params, bool ignoreDefault);
 
