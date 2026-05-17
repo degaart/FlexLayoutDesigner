@@ -10,15 +10,11 @@
 
 typedef struct EdgeValueViewState
 {
-    unsigned signature;
     YGNodeRef flex;
     struct
     {
         HWND hLabel;
         HWND hControl;
-        YGNodeRef flex;
-        YGNodeRef labelFlex;
-        YGNodeRef controlFlex;
     } controls[4];
     int height;
 } EdgeValueViewState;
@@ -28,19 +24,10 @@ static void OnCreate(HWND hwnd)
     HMODULE hInstance = GetModuleHandle(NULL);
 
     EdgeValueViewState* state = calloc(1, sizeof(EdgeValueViewState));
-    state->signature = 0xDEADBEEF;
-
-    state->flex = CreateFlex(32.0f, NAN, NULL);
-    YGNodeStyleSetFlexDirection(state->flex, YGFlexDirectionColumn);
     SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG)state);
 
     for (int i = EDGE_MIN; i < EDGE_MAX; i++)
     {
-        state->controls[i].flex = CreateFlex(NAN, 22.0f, NULL);
-        YGNodeStyleSetFlexDirection(state->controls[i].flex, YGFlexDirectionRow);
-        YGNodeStyleSetMargin(state->controls[i].flex, YGEdgeTop, 2.0f);
-        YGNodeInsertChild(state->flex, state->controls[i].flex, YGNodeGetChildCount(state->flex));
-
         const char* text;
         switch (i)
         {
@@ -66,25 +53,95 @@ static void OnCreate(HWND hwnd)
             text,
             WS_CHILD|WS_CLIPSIBLINGS|WS_VISIBLE,
             0, 0,
-            45, 45,
+            32, 32,
             hwnd,
             NULL,
             hInstance,
             0L);
-
-        state->controls[i].labelFlex = CreateFlex(45.0f, NAN, state->controls[i].hLabel);
-        YGNodeInsertChild(state->controls[i].flex, state->controls[i].labelFlex, YGNodeGetChildCount(state->controls[i].flex));
-
         state->controls[i].hControl = ValueView_Create(hInstance, hwnd, 0, 0, 32, 32);
-
-        state->controls[i].controlFlex = CreateFlex(NAN, 22.0f, state->controls[i].hControl);
-        YGNodeStyleSetFlexGrow(state->controls[i].controlFlex, 1.0f);
-        YGNodeInsertChild(state->controls[i].flex, state->controls[i].controlFlex, YGNodeGetChildCount(state->controls[i].flex));
     }
 
+    unsigned dpi = GetDpiForWindow(hwnd);
+
+    YGNodeRef rootFlex = YGNodeNew();
+    YGNodeRef flex1 = YGNodeNew();
+    YGNodeStyleSetFlexDirection(flex1, YGFlexDirectionRow);
+    YGNodeStyleSetMargin(flex1, YGEdgeBottom, MAP_PIXELS(1));
+    YGNodeRef flex2 = YGNodeNew();
+    YGNodeStyleSetWidth(flex2, MAP_PIXELS(45));
+    SetFlexHWND(flex2, state->controls[0].hLabel);
+    YGNodeInsertChild(flex1, flex2, YGNodeGetChildCount(flex1));
+
+    YGNodeRef flex3 = YGNodeNew();
+    YGNodeStyleSetWidth(flex3, MAP_PIXELS(45));
+    YGNodeStyleSetHeight(flex3, MAP_PIXELS(24));
+    YGNodeStyleSetFlexGrow(flex3, 1);
+    YGNodeStyleSetMargin(flex3, YGEdgeLeft, MAP_PIXELS(1));
+    SetFlexHWND(flex3, state->controls[0].hControl);
+    YGNodeInsertChild(flex1, flex3, YGNodeGetChildCount(flex1));
+
+    YGNodeInsertChild(rootFlex, flex1, YGNodeGetChildCount(rootFlex));
+
+    YGNodeRef flex5 = YGNodeNew();
+    YGNodeStyleSetFlexDirection(flex5, YGFlexDirectionRow);
+    YGNodeStyleSetMargin(flex5, YGEdgeBottom, MAP_PIXELS(1));
+    YGNodeRef flex8 = YGNodeNew();
+    YGNodeStyleSetWidth(flex8, MAP_PIXELS(45));
+    SetFlexHWND(flex8, state->controls[1].hLabel);
+    YGNodeInsertChild(flex5, flex8, YGNodeGetChildCount(flex5));
+
+    YGNodeRef flex9 = YGNodeNew();
+    YGNodeStyleSetWidth(flex9, MAP_PIXELS(45));
+    YGNodeStyleSetHeight(flex9, MAP_PIXELS(24));
+    YGNodeStyleSetFlexGrow(flex9, 1);
+    YGNodeStyleSetMargin(flex9, YGEdgeLeft, MAP_PIXELS(1));
+    SetFlexHWND(flex9, state->controls[1].hControl);
+    YGNodeInsertChild(flex5, flex9, YGNodeGetChildCount(flex5));
+
+    YGNodeInsertChild(rootFlex, flex5, YGNodeGetChildCount(rootFlex));
+
+    YGNodeRef flex6 = YGNodeNew();
+    YGNodeStyleSetFlexDirection(flex6, YGFlexDirectionRow);
+    YGNodeStyleSetMargin(flex6, YGEdgeBottom, MAP_PIXELS(1));
+    YGNodeRef flex11 = YGNodeNew();
+    YGNodeStyleSetWidth(flex11, MAP_PIXELS(45));
+    SetFlexHWND(flex11, state->controls[2].hLabel);
+    YGNodeInsertChild(flex6, flex11, YGNodeGetChildCount(flex6));
+
+    YGNodeRef flex12 = YGNodeNew();
+    YGNodeStyleSetWidth(flex12, MAP_PIXELS(45));
+    YGNodeStyleSetHeight(flex12, MAP_PIXELS(24));
+    YGNodeStyleSetFlexGrow(flex12, 1);
+    YGNodeStyleSetMargin(flex12, YGEdgeLeft, MAP_PIXELS(1));
+    SetFlexHWND(flex12, state->controls[2].hControl);
+    YGNodeInsertChild(flex6, flex12, YGNodeGetChildCount(flex6));
+
+    YGNodeInsertChild(rootFlex, flex6, YGNodeGetChildCount(rootFlex));
+
+    YGNodeRef flex7 = YGNodeNew();
+    YGNodeStyleSetFlexDirection(flex7, YGFlexDirectionRow);
+    YGNodeRef flex14 = YGNodeNew();
+    YGNodeStyleSetWidth(flex14, MAP_PIXELS(45));
+    SetFlexHWND(flex14, state->controls[3].hLabel);
+    YGNodeInsertChild(flex7, flex14, YGNodeGetChildCount(flex7));
+
+    YGNodeRef flex15 = YGNodeNew();
+    YGNodeStyleSetWidth(flex15, MAP_PIXELS(45));
+    YGNodeStyleSetHeight(flex15, MAP_PIXELS(24));
+    YGNodeStyleSetFlexGrow(flex15, 1);
+    YGNodeStyleSetMargin(flex15, YGEdgeLeft, MAP_PIXELS(1));
+    SetFlexHWND(flex15, state->controls[3].hControl);
+    YGNodeInsertChild(flex7, flex15, YGNodeGetChildCount(flex7));
+
+    YGNodeInsertChild(rootFlex, flex7, YGNodeGetChildCount(rootFlex));
+
+
+    state->flex = rootFlex;
     YGNodeCalculateLayout(state->flex, YGUndefined, YGUndefined, YGDirectionLTR);
     LayoutFlex(state->flex, 0.0f, 0.0f);
     state->height = roundf(YGNodeLayoutGetHeight(state->flex));
+
+    DumpFlex("EdgeValueView", state->flex);
 }
 
 static void OnSize(EdgeValueViewState* state, HWND hwnd, int w, int h)

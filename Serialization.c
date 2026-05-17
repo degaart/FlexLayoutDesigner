@@ -325,25 +325,25 @@ static YGNodeRef DeserializeObject(cJSON* obj)
             }
             break;
         case PROPERTY_TYPE_ALIGN:
-            if(cJSON_IsNumber(value))
+            if(cJSON_IsString(value))
             {
                 prop->setter.a(node, AlignFromString(cJSON_GetStringValue(value)));
             }
             break;
         case PROPERTY_TYPE_POSITION:
-            if (cJSON_IsNumber(value))
+            if (cJSON_IsString(value))
             {
                 prop->setter.p(node, PositionTypeFromString(cJSON_GetStringValue(value)));
             }
             break;
         case PROPERTY_TYPE_DIRECTION:
-            if (cJSON_IsNumber(value))
+            if (cJSON_IsString(value))
             {
                 prop->setter.d(node, FlexDirectionFromString(cJSON_GetStringValue(value)));
             }
             break;
         case PROPERTY_TYPE_WRAP:
-            if (cJSON_IsNumber(value))
+            if (cJSON_IsString(value))
             {
                 prop->setter.w(node, WrapFromString(cJSON_GetStringValue(value)));
             }
@@ -387,19 +387,19 @@ static YGNodeRef DeserializeObject(cJSON* obj)
             }
             break;
         case PROPERTY_TYPE_JUSTIFY:
-            if (cJSON_IsNumber(value))
+            if (cJSON_IsString(value))
             {
                 prop->setter.j(node, JustifyFromString(cJSON_GetStringValue(value)));
             }
             break;
         case PROPERTY_TYPE_OVERFLOW:
-            if (cJSON_IsNumber(value))
+            if (cJSON_IsString(value))
             {
                 prop->setter.o(node, OverflowFromString(cJSON_GetStringValue(value)));
             }
             break;
         case PROPERTY_TYPE_DISPLAY:
-            if (cJSON_IsNumber(value))
+            if (cJSON_IsString(value))
             {
                 prop->setter.disp(node, DisplayFromString(cJSON_GetStringValue(value)));
             }

@@ -1,5 +1,7 @@
 #include "ScrollView.h"
 
+#include "Trace.h"
+
 #define CLASSNAME "ScrollView"
 #define SVM_UPDATESCROLL (WM_USER+1)
 
@@ -118,9 +120,8 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lp
         return SendMessage(GetParent(hwnd), WM_COMMAND, wparam, lparam);
     case WM_NOTIFY:
         return SendMessage(GetParent(hwnd), WM_NOTIFY, wparam, lparam);
-    default:
-        return DefWindowProc(hwnd, msg, wparam, lparam);
     }
+    return DefWindowProc(hwnd, msg, wparam, lparam);
 }
 
 bool ScrollView_Init(HINSTANCE hInstance)

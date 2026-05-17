@@ -16,6 +16,9 @@
         assert(!"Unhandled case value"); \
         break
 
+//#define MAP_PIXELS(P) (((P) * dpi) / 96.0f)
+#define MAP_PIXELS(P) MulDiv(P, dpi, 96)
+
 bool ParseFloat(const char* s, float* out);
 void CenterRect(RECT* inner, const RECT* outer);
 void DumpFlex(const char* title, YGNodeRef flex);

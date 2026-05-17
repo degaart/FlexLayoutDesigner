@@ -4,6 +4,8 @@
 #include "Util.h"
 
 #include "Trace.h"
+
+#include <cJSON/cJSON.h>
 #include <errno.h>
 #include <shobjidl.h>
 #include <stdbool.h>
@@ -49,31 +51,32 @@ void CenterRect(RECT* inner, const RECT* outer)
     inner->bottom = inner->top + innerH;
 }
 
-static void DumpSingleFlex(YGNodeRef flex, int indent)
+static cJSON* DumpSingleFlex(YGNodeRef flex)
 {
-    char prefix[32] = {0};
-    strcpy(prefix, "+ ");
-    for (int i = 0; i < indent; i++)
-    {
-        prefix[i+2] = ' ';
-    }
+    cJSON* result = cJSON_CreateObject();
 
-    TRACE("%s %d %d %d %d",
-          prefix,
-          roundf(YGNodeLayoutGetLeft(flex)), roundf(YGNodeLayoutGetTop(flex)),
-          roundf(YGNodeLayoutGetWidth(flex)), roundf(YGNodeLayoutGetHeight(flex)));
+    cJSON_AddNumberToObject(result, "left", YGNodeLayoutGetLeft(flex));
+    cJSON_AddNumberToObject(result, "top", YGNodeLayoutGetTop(flex));
+    cJSON_AddNumberToObject(result, "width", YGNodeLayoutGetWidth(flex));
+    cJSON_AddNumberToObject(result, "height", YGNodeLayoutGetHeight(flex));
 
-    int childCount = YGNodeGetChildCount(flex);
-    for (int i = 0; i < childCount; i++)
+    cJSON* childrenArr = cJSON_AddArrayToObject(result, "children");
+    unsigned n = YGNodeGetChildCount(flex);
+    for (unsigned i = 0; i < n; i++)
     {
-        DumpSingleFlex(YGNodeGetChild(flex, i), indent + 1);
+        cJSON_AddItemToArray(childrenArr, DumpSingleFlex(YGNodeGetChild(flex, i)));
     }
+    return result;
 }
 
 void DumpFlex(const char* title, YGNodeRef flex)
 {
+    cJSON* obj = DumpSingleFlex(flex);
+    char* str = cJSON_PrintUnformatted(obj);
+
     TRACE("*** %s ***", title);
-    DumpSingleFlex(flex, 0);
+    TRACE("%s", str);
+    free(str);
 }
 
 YGNodeRef CreateFlex(float width, float height, HWND hWnd)
@@ -137,13 +140,10 @@ void LayoutFlex(YGNodeRef flex, float originX, float originY)
             float width = YGNodeLayoutGetWidth(node);
 
             float height = YGNodeLayoutGetHeight(node);
-            if (!strcmp(className, "ComboBox"))
+            if (!strcmp(className, "ComboBox") || !strcmp(className, "EdgeValueView"))
             {
-                height = 128.0f;
-            }
-            else if (!strcmp(className, "EdgeValueView"))
-            {
-                height = 128.0f;
+                unsigned dpi = GetDpiForWindow(data->hwnd);
+                height = MAP_PIXELS(200);
             }
 
             SetWindowPos(data->hwnd, NULL,
@@ -154,6 +154,17 @@ void LayoutFlex(YGNodeRef flex, float originX, float originY)
 
         LayoutFlex(node, left, top);
     }
+}
+
+void SetFlexHWND(YGNodeRef flex, HWND hwnd)
+{
+    FlexData* ctx = YGNodeGetContext(flex);
+    if (!ctx)
+    {
+        ctx = calloc(1, sizeof(FlexData));
+        YGNodeSetContext(flex, ctx);
+    }
+    ctx->hwnd = hwnd;
 }
 
 uint32_t GenerateColor(int index)

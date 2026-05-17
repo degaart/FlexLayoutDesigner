@@ -84,6 +84,7 @@ typedef struct Property
     PropertyGetter getter;
     const char* setterName;
     PropertySetter setter;
+    bool scalable;
     PropertyValue default_;
     HWND hLabel;
     HWND hControl;

@@ -27,38 +27,9 @@ enum UnitIDs
 typedef struct EdgeValueViewState
 {
     YGNodeRef rootFlex;
-    YGNodeRef labelFlex;
-    YGNodeRef comboFlex;
-    HWND hLabel;
+    HWND hEdit;
     HWND hCombo;
 } EdgeValueViewState;
-
-static void Layout(EdgeValueViewState* state, int width, int height)
-{
-    YGNodeStyleSetWidth(state->rootFlex, width);
-    YGNodeStyleSetHeight(state->rootFlex, height);
-    YGNodeCalculateLayout(state->rootFlex, YGUndefined, YGUndefined, YGDirectionLTR);
-
-    int x = roundf(YGNodeLayoutGetLeft(state->labelFlex));
-    int y = roundf(YGNodeLayoutGetTop(state->labelFlex));
-    int w = roundf(YGNodeLayoutGetWidth(state->labelFlex));
-    int h = roundf(YGNodeLayoutGetHeight(state->labelFlex));
-    SetWindowPos(state->hLabel,
-        NULL,
-        x, y,
-        w, h,
-        SWP_NOZORDER);
-
-    x = roundf(YGNodeLayoutGetLeft(state->comboFlex));
-    y = roundf(YGNodeLayoutGetTop(state->comboFlex));
-    w = roundf(YGNodeLayoutGetWidth(state->comboFlex));
-    h = 32 + 64;
-    SetWindowPos(state->hCombo,
-        NULL,
-        x, y,
-        w, h,
-        SWP_NOZORDER);
-}
 
 static void OnCreate(HWND hwnd)
 {
@@ -67,25 +38,23 @@ static void OnCreate(HWND hwnd)
     RECT rc;
     GetClientRect(hwnd, &rc);
 
-    state->hLabel = CreateWindow(
+    state->hEdit = CreateWindow(
         "EDIT",
         "",
-        WS_CHILD|WS_CLIPSIBLINGS|WS_VISIBLE|WS_BORDER|ES_RIGHT,
+        WS_CHILD|WS_CLIPSIBLINGS|WS_VISIBLE|WS_BORDER|ES_RIGHT|ES_AUTOHSCROLL,
         0, 0,
-        32, 24,
+        32, 32,
         hwnd,
         (HMENU)ID_TEXT,
         GetModuleHandle(NULL),
         0L);
 
-    int width = rc.right - rc.left - 32 - 10;
-    int height = 32 + 64;
     state->hCombo = CreateWindow(
         "COMBOBOX",
         "",
         WS_CHILD|WS_CLIPSIBLINGS|WS_VISIBLE|CBS_DROPDOWNLIST|CBS_HASSTRINGS,
-        32+10, 0,
-        width, height,
+        0, 0,
+        32, 32,
         hwnd,
         (HMENU)ID_COMBO,
         GetModuleHandle(NULL),
@@ -95,24 +64,32 @@ static void OnCreate(HWND hwnd)
     ComboBox_AddString(state->hCombo, "%");
     ComboBox_AddString(state->hCombo, "Auto");
 
-    state->rootFlex = YGNodeNew();
-    YGNodeStyleSetWidth(state->rootFlex, rc.right - rc.left);
-    YGNodeStyleSetHeight(state->rootFlex, rc.bottom - rc.top);
-    YGNodeStyleSetFlexDirection(state->rootFlex, YGFlexDirectionRow);
+    unsigned dpi = GetDpiForWindow(hwnd);
 
-    state->labelFlex = YGNodeNew();
-    YGNodeStyleSetWidth(state->labelFlex, 32.0f);
-    YGNodeStyleSetHeight(state->labelFlex, 22.0f);
-    YGNodeInsertChild(state->rootFlex, state->labelFlex, 0);
+    YGNodeRef rootFlex = YGNodeNew();
+    YGNodeStyleSetWidth(rootFlex, MAP_PIXELS(1446));
+    YGNodeStyleSetHeight(rootFlex, MAP_PIXELS(928));
+    YGNodeStyleSetFlexDirection(rootFlex, YGFlexDirectionRow);
+    YGNodeStyleSetAlignContent(rootFlex, YGAlignAuto);
+    YGNodeRef editorFlex = YGNodeNew();
+    YGNodeStyleSetWidth(editorFlex, MAP_PIXELS(42));
+    YGNodeStyleSetHeight(editorFlex, MAP_PIXELS(22));
+    SetFlexHWND(editorFlex, state->hEdit);
+    YGNodeInsertChild(rootFlex, editorFlex, YGNodeGetChildCount(rootFlex));
 
-    state->comboFlex = YGNodeNew();
-    YGNodeStyleSetFlexGrow(state->comboFlex, 1.0f);
-    YGNodeStyleSetHeight(state->comboFlex, 32.0f + 64.0f);
-    YGNodeInsertChild(state->rootFlex, state->comboFlex, 1);
+    YGNodeRef comboFlex = YGNodeNew();
+    YGNodeStyleSetFlexGrow(comboFlex, 1);
+    YGNodeStyleSetMargin(comboFlex, YGEdgeLeft, MAP_PIXELS(1));
+    SetFlexHWND(comboFlex, state->hCombo);
+    YGNodeInsertChild(rootFlex, comboFlex, YGNodeGetChildCount(rootFlex));
 
+    state->rootFlex = rootFlex;
     SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG)state);
 
-    Layout(state, rc.right - rc.left, rc.bottom - rc.top);
+    YGNodeStyleSetWidth(rootFlex, rc.right - rc.left);
+    YGNodeStyleSetHeight(rootFlex, rc.bottom - rc.top);
+    YGNodeCalculateLayout(rootFlex, YGUndefined, YGUndefined, YGDirectionLTR);
+    LayoutFlex(rootFlex, 0.0f, 0.0f);
 }
 
 static void OnChange(HWND hwnd)
@@ -204,7 +181,11 @@ static void OnSize(EdgeValueViewState* state, HWND hwnd, WORD width, WORD height
 {
     RECT rc;
     GetClientRect(hwnd, &rc);
-    Layout(state, rc.right - rc.left, rc.bottom - rc.top);
+
+    YGNodeStyleSetWidth(state->rootFlex, rc.right - rc.left);
+    YGNodeStyleSetHeight(state->rootFlex, rc.bottom - rc.top);
+    YGNodeCalculateLayout(state->rootFlex, YGUndefined, YGUndefined, YGDirectionLTR);
+    LayoutFlex(state->rootFlex, 0.0f, 0.0f);
 }
 
 static void OnDestroy(EdgeValueViewState* state, HWND hwnd)
