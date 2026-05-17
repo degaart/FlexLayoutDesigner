@@ -1,7 +1,8 @@
 #include "LayoutView.h"
 
-#include "flex/flex.h"
 #include "Trace.h"
+#include "Util.h"
+
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -17,83 +18,86 @@ enum Messages
 
 typedef struct WindowData
 {
-    struct flex_item* rootFlex;
-    struct flex_item* selectedFlex;
+    YGNodeRef rootFlex;
+    YGNodeRef selectedFlex;
 } WindowData;
 
-uint32_t GenerateColor(int index)
+static void PaintFlex(HDC hdc, WindowData* data, YGNodeRef flex, float originX, float originY, RECT* selRect)
 {
-    if (index == 0)
-    {
-        return 0xFFFFFF;
-    }
-    return ((uint32_t)index * 2654435761u) >> 8;
-}
+    NodeContext* ctx = YGNodeGetContext(flex);
+    assert(ctx != NULL);
 
-static void PaintFlex(HDC hdc, WindowData* data, struct flex_item* flex)
-{
-    int index = (uintptr_t)flex_item_get_managed_ptr(flex);
-    uint32_t color = GenerateColor(index) & 0xFFFFFF;
-    TRACE("Index=%d color=0x%X", index, color);
+    float left = YGNodeLayoutGetLeft(flex) + originX;
+    float top = YGNodeLayoutGetTop(flex) + originY;
+    float width = YGNodeLayoutGetWidth(flex);
+    float height = YGNodeLayoutGetHeight(flex);
 
     RECT rc;
-    rc.left = roundf(flex_item_get_frame_x(flex));
-    rc.top = roundf(flex_item_get_frame_y(flex));
+    rc.left = roundf(left);
+    rc.top = roundf(top);
+    rc.right = roundf(left + width);
+    rc.bottom = roundf(top + height);
 
-    /* 
-     * If the flex has 0 children, it is not layouted, so frame_width is always 0
-     * We have to hack around that
-     */
-    int width = roundf(flex_item_get_frame_width(flex));
-    int height = roundf(flex_item_get_frame_height(flex));
-    if (flex == data->rootFlex && width == 0 && height == 0)
-    {
-        width = roundf(flex_item_get_width(flex));
-        height = roundf(flex_item_get_height(flex));
-    }
-    rc.right = rc.left + width;
-    rc.bottom = rc.top + height;
+    HBRUSH brush = CreateSolidBrush(ctx->color);
+    FillRect(hdc, &rc, brush);
 
-    HBRUSH brush = CreateSolidBrush(color);
     if (flex == data->selectedFlex)
     {
-        HPEN pen = CreatePen(PS_SOLID, 1, color ^ 0x00FFFFFF);
-        SelectObject(hdc, pen);
-        SelectObject(hdc, brush);
-        Rectangle(hdc, rc.left, rc.top, rc.right, rc.bottom);
-        DeleteObject(pen);
-    }
-    else
-    {
-        FillRect(hdc, &rc, brush);
+        selRect->left = rc.left;
+        selRect->top = rc.top;
+        selRect->right = rc.right;
+        selRect->bottom = rc.bottom;
     }
     DeleteObject(brush);
 
-    char text[16];
-    snprintf(text, sizeof(text), "%d", index);
+    int textLen = strlen(ctx->label);
 
-    SetBkColor(hdc, color);
-    SetTextAlign(hdc, TA_BASELINE|TA_CENTER);
-    SetTextColor(hdc, color ^ 0x00FFFFFF);
+    SetBkColor(hdc, ctx->color);
+    SetTextAlign(hdc, TA_LEFT|TA_TOP);
+    SetTextColor(hdc, ctx->textColor);
+
+    SIZE textSize;
+    GetTextExtentPoint32(hdc, ctx->label, textLen, &textSize);
+
+    RECT textRc;
+    SetRect(&textRc, 0, 0, textSize.cx, textSize.cy);
+    CenterRect(&textRc, &rc);
+
     ExtTextOut(hdc,
-            rc.left + ((rc.right - rc.left)/2),
-            rc.top + ((rc.bottom - rc.top)/2),
+            textRc.left,
+            textRc.top,
             ETO_OPAQUE,
             NULL,
-            text,
-            strlen(text),
+            ctx->label,
+            textLen,
             NULL);
 
-    unsigned children = flex_item_count(flex);
+    unsigned children = YGNodeGetChildCount(flex);
     for (unsigned i = 0; i < children; i++)
     {
-        PaintFlex(hdc, data, flex_item_child(flex, i));
+        PaintFlex(hdc, data, YGNodeGetChild(flex, i), rc.left, rc.top, selRect);
     }
 }
 
 static void OnPaint(HWND hwnd, HDC hdc, PAINTSTRUCT* ps, WindowData* data)
 {
-    PaintFlex(hdc, data, data->rootFlex);
+    HBRUSH brush = GetSysColorBrush(COLOR_WINDOW);
+    FillRect(hdc, &ps->rcPaint, brush);
+
+    RECT rcSel = {0};
+    PaintFlex(hdc, data, data->rootFlex, 0.0f, 0.0f, &rcSel);
+
+    if (rcSel.right - rcSel.left > 0 && rcSel.bottom - rcSel.top > 0)
+    {
+        SetROP2(hdc, R2_XORPEN);
+        HPEN pen = CreatePen(PS_DOT, 1, 0x00FFFFFF);
+        brush = GetStockObject(NULL_BRUSH);
+        SelectObject(hdc, pen);
+        SelectObject(hdc, brush);
+        Rectangle(hdc, rcSel.left, rcSel.top, rcSel.right, rcSel.bottom);
+        DeleteObject(pen);
+    }
+
 }
 
 static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
@@ -104,13 +108,13 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lp
     case LVM_SET_ROOTFLEX:
         if (data)
         {
-            data->rootFlex = (struct flex_item*)lparam;
+            data->rootFlex = (YGNodeRef)lparam;
         }
         return 0;
     case LVM_SET_SELECTEDFLEX:
         if (data)
         {
-            data->selectedFlex = (struct flex_item*)lparam;
+            data->selectedFlex = (YGNodeRef)lparam;
         }
         return 0;
     case WM_PAINT:
@@ -122,11 +126,13 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lp
             EndPaint(hwnd, &ps);
             return 0;
         }
+        return 0;
     case WM_DESTROY:
         SetWindowLongPtr(hwnd, GWLP_USERDATA, 0L);
         return 0;
+    default:
+        return DefWindowProc(hwnd, msg, wparam, lparam);
     }
-    return DefWindowProc(hwnd, msg, wparam, lparam);
 }
 
 bool LayoutView_Init(HINSTANCE hInstance)
@@ -165,12 +171,12 @@ HWND LayoutView_Create(HINSTANCE hInstance, HWND hParent, int x, int y, int widt
     return hwnd;
 }
 
-void LayoutView_SetRootFlex(HWND hwnd, struct flex_item* rootFlex)
+void LayoutView_SetRootFlex(HWND hwnd, YGNodeRef rootFlex)
 {
     SendMessage(hwnd, LVM_SET_ROOTFLEX, 0, (LPARAM)rootFlex);
 }
 
-void LayoutView_SetSelectedFlex(HWND hwnd, struct flex_item* flex)
+void LayoutView_SetSelectedFlex(HWND hwnd, YGNodeRef flex)
 {
     SendMessage(hwnd, LVM_SET_SELECTEDFLEX, 0, (LPARAM)flex);
     InvalidateRect(hwnd, NULL, FALSE);

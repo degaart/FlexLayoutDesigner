@@ -49,7 +49,7 @@ static void OnUpdateScroll(HWND hwnd)
     si.fMask = SIF_RANGE | SIF_PAGE;
     si.nPage = rc.bottom - rc.top;
     si.nMin = 0;
-    si.nMax = params.maxY + ((rc.bottom - rc.top) / 2);
+    si.nMax = params.maxY;
     SetScrollInfo(hwnd, SB_VERT, &si, TRUE);
 }
 
@@ -90,24 +90,29 @@ static void OnVScroll(HWND hwnd, int action, int pos, int multiplier)
     SetScrollInfo(hwnd, SB_VERT, &si, TRUE);
 
     int delta = yPos - oldPos;
-    for (HWND hChild = GetWindow(hwnd, GW_CHILD); hChild; hChild = GetWindow(hChild, GW_HWNDNEXT))
+    if (delta != 0)
     {
-        RECT rc;
-        GetWindowRect(hChild, &rc);
-
-        POINT pt = { .x = rc.left, .y = rc.top };
-        ScreenToClient(hwnd, &pt);
-
-        SetWindowPos(hChild, NULL, pt.x, pt.y - delta, 0, 0, SWP_NOSIZE|SWP_NOZORDER);
+        ScrollWindowEx(hwnd, 0, -delta, NULL, NULL, NULL, NULL,
+                       SW_SCROLLCHILDREN | SW_INVALIDATE | SW_ERASE);
     }
 }
 
 static void OnMouseWheel(HWND hwnd, int distance)
 {
-    TRACE("MouseScroll: %d %d", distance, distance / 120);
-
     int amount = distance / 120;
     OnVScroll(hwnd, SB_LINEUP, 0, amount);
+}
+
+static void OnSize(HWND hwnd, int width, int height)
+{
+    SCROLLINFO si = {0};
+    si.cbSize = sizeof(si);
+    si.fMask = SIF_ALL;
+    GetScrollInfo(hwnd, SB_VERT, &si);
+
+    si.fMask = SIF_POS;
+    si.nPos = 0;
+    SetScrollInfo(hwnd, SB_VERT, &si, TRUE);
 }
 
 static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
@@ -127,9 +132,11 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lp
         return SendMessage(GetParent(hwnd), WM_COMMAND, wparam, lparam);
     case WM_NOTIFY:
         return SendMessage(GetParent(hwnd), WM_NOTIFY, wparam, lparam);
-    default:
-        return DefWindowProc(hwnd, msg, wparam, lparam);
+    case WM_SIZE:
+        OnSize(hwnd, LOWORD(lparam), HIWORD(lparam));
+        return 0;
     }
+    return DefWindowProc(hwnd, msg, wparam, lparam);
 }
 
 bool ScrollView_Init(HINSTANCE hInstance)
@@ -150,7 +157,8 @@ bool ScrollView_Init(HINSTANCE hInstance)
 
 HWND ScrollView_Create(HINSTANCE hInstance, HWND hParent, int x, int y, int w, int h)
 {
-    return CreateWindow(
+    return CreateWindowEx(
+        0,
         CLASSNAME,
         "",
         WS_CHILD|WS_CLIPSIBLINGS|WS_CLIPCHILDREN|WS_VISIBLE|WS_VSCROLL,

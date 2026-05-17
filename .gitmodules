@@ -1,3 +1,6 @@
-[submodule "flex"]
-	path = flex
-	url = ../../xamarin/flex
+[submodule "yoga"]
+	path = yoga
+	url = ../../facebook/yoga.git
+[submodule "cJSON"]
+	path = cJSON
+	url = ../../DaveGamble/cJSON
