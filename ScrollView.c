@@ -103,6 +103,18 @@ static void OnMouseWheel(HWND hwnd, int distance)
     OnVScroll(hwnd, SB_LINEUP, 0, amount);
 }
 
+static void OnSize(HWND hwnd, int width, int height)
+{
+    SCROLLINFO si = {0};
+    si.cbSize = sizeof(si);
+    si.fMask = SIF_ALL;
+    GetScrollInfo(hwnd, SB_VERT, &si);
+
+    si.fMask = SIF_POS;
+    si.nPos = 0;
+    SetScrollInfo(hwnd, SB_VERT, &si, TRUE);
+}
+
 static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
     switch (msg)
@@ -120,6 +132,9 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lp
         return SendMessage(GetParent(hwnd), WM_COMMAND, wparam, lparam);
     case WM_NOTIFY:
         return SendMessage(GetParent(hwnd), WM_NOTIFY, wparam, lparam);
+    case WM_SIZE:
+        OnSize(hwnd, LOWORD(lparam), HIWORD(lparam));
+        return 0;
     }
     return DefWindowProc(hwnd, msg, wparam, lparam);
 }
