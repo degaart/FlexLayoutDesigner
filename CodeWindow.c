@@ -54,7 +54,7 @@ static void OnCreate(HWND hwnd)
     YGNodeSetContext(editFlex, data);
     YGNodeInsertChild(rootFlex, editFlex, YGNodeGetChildCount(rootFlex));
 
-    SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG)rootFlex);
+    SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)rootFlex);
 }
 
 static void OnSetValue(HWND hwnd, const char* value)

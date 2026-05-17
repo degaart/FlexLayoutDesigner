@@ -87,7 +87,7 @@ static void OnCreate(HWND hwnd)
     YGNodeInsertChild(rootFlex, comboFlex, YGNodeGetChildCount(rootFlex));
 
     state->rootFlex = rootFlex;
-    SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG)state);
+    SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)state);
 
     YGNodeStyleSetWidth(rootFlex, rc.right - rc.left);
     YGNodeStyleSetHeight(rootFlex, rc.bottom - rc.top);

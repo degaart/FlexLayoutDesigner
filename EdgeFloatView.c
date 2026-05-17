@@ -25,7 +25,7 @@ static void OnCreate(HWND hwnd)
     HMODULE hInstance = GetModuleHandle(NULL);
 
     EdgeFloatViewState* state = calloc(1, sizeof(EdgeFloatViewState));
-    SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG)state);
+    SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)state);
 
     for (int i = EDGE_MIN; i < EDGE_MAX; i++)
     {
@@ -202,19 +202,19 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lp
         OnCreate(hwnd);
         return 0;
     case WM_SIZE:
-        state = (EdgeFloatViewState*)GetWindowLongPtr(hwnd, GWL_USERDATA);
+        state = (EdgeFloatViewState*)GetWindowLongPtr(hwnd, GWLP_USERDATA);
         if (state)
         {
             OnSize(state, hwnd, LOWORD(lparam), HIWORD(lparam));
         }
         return 0;
     case WM_DESTROY:
-        state = (EdgeFloatViewState*)GetWindowLongPtr(hwnd, GWL_USERDATA);
+        state = (EdgeFloatViewState*)GetWindowLongPtr(hwnd, GWLP_USERDATA);
         OnDestroy(state);
         SetWindowLongPtr(hwnd, GWLP_USERDATA, 0);
         return 0;
     case WM_COMMAND:
-        state = (EdgeFloatViewState*)GetWindowLongPtr(hwnd, GWL_USERDATA);
+        state = (EdgeFloatViewState*)GetWindowLongPtr(hwnd, GWLP_USERDATA);
         if (state)
         {
             switch (HIWORD(wparam))
