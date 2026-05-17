@@ -1,7 +1,8 @@
 #include "EdgeFloatView.h"
 
-#include "Trace.h"
 #include "Util.h"
+#include <assert.h>
+#include <stdlib.h>
 
 #define CLASSNAME "EdgeFloatView"
 

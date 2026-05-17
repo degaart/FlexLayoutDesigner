@@ -1,12 +1,12 @@
 #include "LayoutView.h"
 
-#include "Trace.h"
 #include "Util.h"
 
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <assert.h>
 
 #define CLASSNAME "LayoutView"
 

@@ -5,6 +5,7 @@
 
 #include "Trace.h"
 
+#include <assert.h>
 #include <cJSON/cJSON.h>
 #include <errno.h>
 #include <shobjidl.h>

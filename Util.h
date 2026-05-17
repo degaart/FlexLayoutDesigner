@@ -4,6 +4,7 @@
 
 #include <stdbool.h>
 #include <Windows.h>
+#include <stdint.h>
 #include <yoga\Yoga.h>
 
 #define ENUM_STRING_CASE(V, C) \

@@ -1,7 +1,5 @@
 #include "ScrollView.h"
 
-#include "Trace.h"
-
 #define CLASSNAME "ScrollView"
 #define SVM_UPDATESCROLL (WM_USER+1)
 

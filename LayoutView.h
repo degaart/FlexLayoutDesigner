@@ -3,6 +3,7 @@
 #include <Windows.h>
 #include <CommCtrl.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <yoga/Yoga.h>
 
 typedef struct NodeContext

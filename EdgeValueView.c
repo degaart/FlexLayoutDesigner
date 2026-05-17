@@ -2,6 +2,8 @@
 
 #include "Util.h"
 #include "ValueView.h"
+#include <assert.h>
+#include <stdlib.h>
 
 #define CLASSNAME "EdgeValueView"
 

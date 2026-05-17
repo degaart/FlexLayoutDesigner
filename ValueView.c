@@ -1,7 +1,10 @@
 #include "ValueView.h"
 
 #include "Util.h"
+
+#include <stdlib.h>
 #include <windowsx.h>
+#include <assert.h>
 
 #define CLASSNAME "ValueView"
 

@@ -2,6 +2,10 @@
 
 #include "LayoutView.h"
 #include "Util.h"
+
+#include <assert.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <cJSON/cJSON.h>
 #include <sys/stat.h>
 

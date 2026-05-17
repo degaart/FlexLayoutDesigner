@@ -3,6 +3,7 @@
 #include "Util.h"
 
 #include <assert.h>
+#include <stdlib.h>
 #include <yoga/Yoga.h>
 
 #define CLASSNAME "CodeWindow"
