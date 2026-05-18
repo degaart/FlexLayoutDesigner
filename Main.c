@@ -16,6 +16,7 @@
 #include <ShlObj.h>
 #include <combaseapi.h>
 #include <assert.h>
+#include <inttypes.h>
 #include <math.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -32,10 +33,13 @@ enum ButtonIDs
     IDM_FILE_SAVE,
     IDM_FILE_SAVE_AS,
     IDM_FILE_GENERATE,
+    IDM_FILE_BENCHMARK,
     IDM_FILE_EXIT,
 
     IDM_FLEX_ADD,
     IDM_FLEX_REMOVE,
+
+    IDT_LAYOUT,
 };
 
 typedef struct AppState
@@ -59,6 +63,9 @@ typedef struct AppState
         label, \
         (int)roundf(YGNodeLayoutGetLeft(flex)), (int)roundf(YGNodeLayoutGetTop(flex)), \
         (int)roundf(YGNodeLayoutGetWidth(flex)), (int)roundf(YGNodeLayoutGetHeight(flex)))
+
+static bool gTimerArmed = false;
+static bool gResizePending = false;
 
 void NodeGetContext(YGNodeConstRef node, char* buffer, size_t size)
 {
@@ -181,39 +188,6 @@ static void InitProperties()
     YGNodeFree(node);
 }
 
-static void Layout(YGNodeRef root, float originX, float originY)
-{
-    int childCount = YGNodeGetChildCount(root);
-    for (int i = 0; i < childCount; i++)
-    {
-        YGNodeRef node = YGNodeGetChild(root, i);
-        HWND hwnd = YGNodeGetContext(node);
-
-        float left = YGNodeLayoutGetLeft(node) + originX;
-        float top = YGNodeLayoutGetTop(node) + originY;
-        if (hwnd)
-        {
-            char className[128];
-            GetClassName(hwnd, className, sizeof(className));
-
-            float width = YGNodeLayoutGetWidth(node);
-
-            float height = YGNodeLayoutGetHeight(node);
-            if (!strcmp(className, "ComboBox"))
-            {
-                height = 200.0f;
-            }
-
-            SetWindowPos(hwnd, NULL,
-                roundf(left), roundf(top),
-                roundf(width), roundf(height),
-                SWP_NOZORDER);
-        }
-
-        Layout(node, left, top);
-    }
-}
-
 static void CreateProperties(AppState* appState, HWND hParent)
 {
     unsigned dpi = GetDpiForWindow(hParent);
@@ -258,7 +232,7 @@ static void CreateProperties(AppState* appState, HWND hParent)
             NULL,
             appState->hInstance,
             0L);
-        YGNodeSetContext(prop->labelFlex, prop->hLabel);
+        SetFlexHWND(prop->labelFlex, prop->hLabel);
 
         unsigned style = 0;
         char text[64] = {0};
@@ -328,7 +302,7 @@ static void CreateProperties(AppState* appState, HWND hParent)
             MessageBox(hParent, "Failed to create control", "Error", MB_ICONERROR | MB_OK);
             ExitProcess(1);
         }
-        YGNodeSetContext(prop->controlFlex, prop->hControl);
+        SetFlexHWND(prop->controlFlex, prop->hControl);
 
         switch (prop->type)
         {
@@ -414,7 +388,7 @@ static void CreateProperties(AppState* appState, HWND hParent)
     }
 
     YGNodeCalculateLayout(appState->propsFlex, YGUndefined, YGUndefined, YGDirectionLTR);
-    Layout(appState->propsFlex, 0.0f, 0.0f);
+    LayoutFlex(hParent, appState->propsFlex);
 }
 
 static void DisplayProperties(AppState* appState, YGNodeConstRef item)
@@ -798,19 +772,21 @@ static void OnCreate(HWND hwnd, AppState* appState)
     YGNodeInsertChild(editorFlex, layoutPaneFlex, YGNodeGetChildCount(editorFlex));
 
     appState->editorFlex = editorFlex;
-    LayoutFlex(appState->editorFlex, 0.0f, 0.0f);
+    LayoutFlex(hwnd, appState->editorFlex);
 
     appState->blockUpdates--;
 }
 
-static void OnSize(AppState* appState, HWND hwnd, WORD width, WORD height)
+static void LayoutWindow(AppState* appState, HWND hwnd)
 {
-    YGNodeStyleSetWidth(appState->editorFlex, width);
-    YGNodeStyleSetHeight(appState->editorFlex, height);
-    YGNodeCalculateLayout(appState->editorFlex, YGUndefined, YGUndefined, YGDirectionLTR);
-    LayoutFlex(appState->editorFlex, 0.0f, 0.0f);
-
     RECT rc;
+    GetClientRect(hwnd, &rc);
+
+    YGNodeStyleSetWidth(appState->editorFlex, rc.right - rc.left);
+    YGNodeStyleSetHeight(appState->editorFlex, rc.bottom - rc.top);
+    YGNodeCalculateLayout(appState->editorFlex, YGUndefined, YGUndefined, YGDirectionLTR);
+    LayoutFlex(hwnd, appState->editorFlex);
+
     GetClientRect(appState->hLayoutView, &rc);
     YGNodeStyleSetWidth(appState->rootFlex, rc.right - rc.left);
     YGNodeStyleSetHeight(appState->rootFlex, rc.bottom - rc.top);
@@ -826,7 +802,18 @@ static void OnSize(AppState* appState, HWND hwnd, WORD width, WORD height)
     YGNodeStyleSetWidth(appState->propsFlex, rc.right - rc.left);
     YGNodeStyleSetHeight(appState->propsFlex, rc.bottom - rc.top);
     YGNodeCalculateLayout(appState->propsFlex, YGUndefined, YGUndefined, YGDirectionLTR);
-    Layout(appState->propsFlex, 0.0f, 0.0f);
+
+    LayoutFlex(hwnd, appState->propsFlex);
+}
+
+static void OnSize(AppState* appState, HWND hwnd, WORD width, WORD height)
+{
+    gResizePending = true;
+    if (!gTimerArmed)
+    {
+        gTimerArmed = true;
+        SetTimer(hwnd, IDT_LAYOUT, 18, NULL);
+    }
 }
 
 static void OnAdd(AppState* appState, HWND hwnd, HWND hButton)
@@ -1307,6 +1294,30 @@ static void OnNew(AppState* appState, HWND hwnd)
     InvalidateRect(appState->hLayoutView, NULL, TRUE);
 }
 
+static void OnBenchmark(AppState* appState, HWND hwnd)
+{
+    LARGE_INTEGER start;
+    QueryPerformanceCounter(&start);
+
+    for (int i = 0; i < 5000; i++)
+    {
+        LayoutFlex(hwnd, appState->propsFlex);
+    }
+
+    LARGE_INTEGER stop;
+    QueryPerformanceCounter(&stop);
+
+    LARGE_INTEGER freq;
+    QueryPerformanceFrequency(&freq);
+
+    uint64_t index = ((stop.QuadPart - start.QuadPart) * 1000) / freq.QuadPart;
+
+    char msg[128];
+    snprintf(msg, sizeof(msg), "Performance index: %" PRIu64, index);
+
+    MessageBox(hwnd, msg, "Info", MB_OK|MB_ICONINFORMATION);
+}
+
 static void OnCommand(AppState* appState, HWND hwnd, HWND hButton, unsigned buttonID)
 {
     switch (buttonID)
@@ -1331,6 +1342,9 @@ static void OnCommand(AppState* appState, HWND hwnd, HWND hButton, unsigned butt
         break;
     case IDM_FILE_GENERATE:
         OnGenerate(appState, hwnd);
+        break;
+    case IDM_FILE_BENCHMARK:
+        OnBenchmark(appState, hwnd);
         break;
     case IDM_FILE_EXIT:
         DestroyWindow(hwnd);
@@ -1646,6 +1660,27 @@ void OnComboBoxSelChange(AppState* appState, HWND hwnd, HWND hCombo, int id)
     }
 }
 
+static void OnDestroy(AppState* appState, HWND hwnd)
+{
+    KillTimer(hwnd, IDT_LAYOUT);
+    PostQuitMessage(0);
+}
+
+void OnTimer(AppState* appState, HWND hwnd, int timerID)
+{
+    if (timerID == IDT_LAYOUT)
+    {
+        if (!gResizePending)
+        {
+            KillTimer(hwnd, IDT_LAYOUT);
+            gTimerArmed = false;
+            return;
+        }
+        gResizePending = false;
+        LayoutWindow(appState, hwnd);
+    }
+}
+
 static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
     AppState* appState = (AppState*)GetWindowLongPtr(hwnd, GWLP_USERDATA);
@@ -1662,6 +1697,9 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lp
         {
             OnSize(appState, hwnd, LOWORD(lparam), HIWORD(lparam));
         }
+        return 0;
+    case WM_TIMER:
+        OnTimer(appState, hwnd, wparam);
         return 0;
     case WM_COMMAND:
         if (appState)
@@ -1688,8 +1726,8 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lp
         }
         return 0;
     case WM_DESTROY:
+        OnDestroy(appState, hwnd);
         SetWindowLongPtr(hwnd, GWLP_USERDATA, 0);
-        PostQuitMessage(0);
         return 0;
     }
     return DefWindowProc(hwnd, msg, wparam, lparam);
@@ -1761,6 +1799,7 @@ static bool InitInstance(HINSTANCE hInstance, INT nShowCmd, AppState* appState)
     AppendMenu(hFileMenu, MF_STRING, IDM_FILE_SAVE_AS, "S&ave As...");
     AppendMenu(hFileMenu, MF_SEPARATOR, 0, NULL);
     AppendMenu(hFileMenu, MF_STRING, IDM_FILE_GENERATE, "&Generate Code");
+    AppendMenu(hFileMenu, MF_STRING, IDM_FILE_BENCHMARK, "&Benchmark");
     AppendMenu(hFileMenu, MF_SEPARATOR, 0, NULL);
     AppendMenu(hFileMenu, MF_STRING, IDM_FILE_EXIT, "E&xit");
     AppendMenu(hMenuBar, MF_POPUP, (UINT_PTR)hFileMenu, "&File");

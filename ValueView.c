@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <windowsx.h>
 #include <assert.h>
+#include <stdio.h>
 
 #define CLASSNAME "ValueView"
 
@@ -92,7 +93,7 @@ static void OnCreate(HWND hwnd)
     YGNodeStyleSetWidth(rootFlex, rc.right - rc.left);
     YGNodeStyleSetHeight(rootFlex, rc.bottom - rc.top);
     YGNodeCalculateLayout(rootFlex, YGUndefined, YGUndefined, YGDirectionLTR);
-    LayoutFlex(rootFlex, 0.0f, 0.0f);
+    LayoutFlex(hwnd, rootFlex);
 }
 
 static void OnChange(HWND hwnd)
@@ -188,7 +189,7 @@ static void OnSize(EdgeValueViewState* state, HWND hwnd, WORD width, WORD height
     YGNodeStyleSetWidth(state->rootFlex, rc.right - rc.left);
     YGNodeStyleSetHeight(state->rootFlex, rc.bottom - rc.top);
     YGNodeCalculateLayout(state->rootFlex, YGUndefined, YGUndefined, YGDirectionLTR);
-    LayoutFlex(state->rootFlex, 0.0f, 0.0f);
+    LayoutFlex(hwnd, state->rootFlex);
 }
 
 static void OnDestroy(EdgeValueViewState* state, HWND hwnd)

@@ -147,7 +147,7 @@ static void OnCreate(HWND hwnd)
 
     state->flex = rootFlex;
     YGNodeCalculateLayout(state->flex, YGUndefined, YGUndefined, YGDirectionLTR);
-    LayoutFlex(state->flex, 0.0f, 0.0f);
+    LayoutFlex(hwnd, state->flex);
 
     DumpFlex("EdgeFloatView", state->flex);
     state->height = roundf(YGNodeLayoutGetHeight(state->flex));
@@ -158,7 +158,7 @@ static void OnSize(EdgeFloatViewState* state, HWND hwnd, int w, int h)
     YGNodeStyleSetWidth(state->flex, w);
     YGNodeStyleSetHeight(state->flex, h);
     YGNodeCalculateLayout(state->flex, YGUndefined, YGUndefined, YGDirectionLTR);
-    LayoutFlex(state->flex, 0.0f, 0.0f);
+    LayoutFlex(hwnd, state->flex);
 }
 
 static void OnDestroy(EdgeFloatViewState* state)

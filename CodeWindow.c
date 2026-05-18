@@ -79,7 +79,7 @@ static void OnSize(HWND hwnd, YGNodeRef rootFlex, int width, int height)
     YGNodeStyleSetWidth(rootFlex, width);
     YGNodeStyleSetHeight(rootFlex, height);
     YGNodeCalculateLayout(rootFlex, YGUndefined, YGUndefined, YGDirectionLTR);
-    LayoutFlex(rootFlex, 0.0f, 0.0f);
+    LayoutFlex(hwnd, rootFlex);
 }
 
 static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)

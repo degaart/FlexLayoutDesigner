@@ -31,7 +31,7 @@ typedef struct FlexData
 
 YGNodeRef CreateFlex(float width, float height, HWND hWnd);
 void DestroyFlex(YGNodeRef flex);
-void LayoutFlex(YGNodeRef flex, float originX, float originY);
+void LayoutFlex(HWND hParent, YGNodeRef flex);
 void SetFlexHWND(YGNodeRef flex, HWND hwnd);
 uint32_t GenerateColor(int index);
 int fcomp(float a, float b);

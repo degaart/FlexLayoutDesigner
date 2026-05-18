@@ -123,14 +123,14 @@ void DestroyFlex(YGNodeRef flex)
     YGNodeFree(flex);
 }
 
-void LayoutFlex(YGNodeRef flex, float originX, float originY)
+static void LayoutChildFlex(HDWP hDwp, YGNodeRef flex, float originX, float originY, unsigned comboHeight)
 {
     unsigned childCount = YGNodeGetChildCount(flex);
     for (unsigned i = 0; i < childCount; i++)
     {
         YGNodeRef node = YGNodeGetChild(flex, i);
         FlexData* data = YGNodeGetContext(node);
-        
+
         float left = YGNodeLayoutGetLeft(node) + originX;
         float top = YGNodeLayoutGetTop(node) + originY;
         if (data && data->hwnd)
@@ -143,18 +143,27 @@ void LayoutFlex(YGNodeRef flex, float originX, float originY)
             float height = YGNodeLayoutGetHeight(node);
             if (!strcmp(className, "ComboBox") || !strcmp(className, "EdgeValueView"))
             {
-                unsigned dpi = GetDpiForWindow(data->hwnd);
-                height = MAP_PIXELS(200);
+                height = comboHeight;
             }
 
-            SetWindowPos(data->hwnd, NULL,
-                roundf(left), roundf(top),
-                roundf(width), roundf(height),
+            DeferWindowPos(hDwp, data->hwnd, NULL,
+                (int)left, (int)top,
+                (int)width, (int)height,
                 SWP_NOZORDER);
         }
 
-        LayoutFlex(node, left, top);
+        LayoutChildFlex(hDwp, node, left, top, comboHeight);
     }
+}
+
+void LayoutFlex(HWND hParent, YGNodeRef flex)
+{
+    unsigned dpi = GetDpiForWindow(hParent);
+    unsigned comboHeight = MAP_PIXELS(200);
+
+    HDWP hDwp = BeginDeferWindowPos(100);
+    LayoutChildFlex(hDwp, flex, 0.0f, 0.0f, comboHeight);
+    EndDeferWindowPos(hDwp);
 }
 
 void SetFlexHWND(YGNodeRef flex, HWND hwnd)
@@ -230,7 +239,7 @@ uint32_t InvertColor(uint32_t color)
     unsigned g = GetGValue(color);
     unsigned b = GetBValue(color);
 
-    float luminance = 
+    float luminance =
         (0.2126f * ToLinear(r)) +
         (0.7152f * ToLinear(g)) +
         (0.0722f * ToLinear(b));
@@ -272,15 +281,15 @@ void EnumNodeProperties(YGNodeConstRef node, EnumPropertiesParams* params, bool 
             {
                 switch (prop->getter.a(node))
                 {
-                ENUM_STRING_CASE(valueName, YGAlignAuto);
-                ENUM_STRING_CASE(valueName, YGAlignFlexStart);
-                ENUM_STRING_CASE(valueName, YGAlignCenter);
-                ENUM_STRING_CASE(valueName, YGAlignFlexEnd);
-                ENUM_STRING_CASE(valueName, YGAlignStretch);
-                ENUM_STRING_CASE(valueName, YGAlignBaseline);
-                ENUM_STRING_CASE(valueName, YGAlignSpaceBetween);
-                ENUM_STRING_CASE(valueName, YGAlignSpaceAround);
-                UNHANDLED_CASE();
+                    ENUM_STRING_CASE(valueName, YGAlignAuto);
+                    ENUM_STRING_CASE(valueName, YGAlignFlexStart);
+                    ENUM_STRING_CASE(valueName, YGAlignCenter);
+                    ENUM_STRING_CASE(valueName, YGAlignFlexEnd);
+                    ENUM_STRING_CASE(valueName, YGAlignStretch);
+                    ENUM_STRING_CASE(valueName, YGAlignBaseline);
+                    ENUM_STRING_CASE(valueName, YGAlignSpaceBetween);
+                    ENUM_STRING_CASE(valueName, YGAlignSpaceAround);
+                    UNHANDLED_CASE();
                 }
                 params->onAlign(params, prop, node, prop->getter.a(node), valueName);
             }
@@ -290,10 +299,10 @@ void EnumNodeProperties(YGNodeConstRef node, EnumPropertiesParams* params, bool 
             {
                 switch (prop->getter.p(node))
                 {
-                ENUM_STRING_CASE(valueName, YGPositionTypeStatic);
-                ENUM_STRING_CASE(valueName, YGPositionTypeRelative);
-                ENUM_STRING_CASE(valueName, YGPositionTypeAbsolute);
-                UNHANDLED_CASE();
+                    ENUM_STRING_CASE(valueName, YGPositionTypeStatic);
+                    ENUM_STRING_CASE(valueName, YGPositionTypeRelative);
+                    ENUM_STRING_CASE(valueName, YGPositionTypeAbsolute);
+                    UNHANDLED_CASE();
                 }
                 params->onPosition(params, prop, node, prop->getter.p(node), valueName);
             }
@@ -303,11 +312,11 @@ void EnumNodeProperties(YGNodeConstRef node, EnumPropertiesParams* params, bool 
             {
                 switch (prop->getter.d(node))
                 {
-                ENUM_STRING_CASE(valueName, YGFlexDirectionColumn);
-                ENUM_STRING_CASE(valueName, YGFlexDirectionColumnReverse);
-                ENUM_STRING_CASE(valueName, YGFlexDirectionRow);
-                ENUM_STRING_CASE(valueName, YGFlexDirectionRowReverse);
-                UNHANDLED_CASE();
+                    ENUM_STRING_CASE(valueName, YGFlexDirectionColumn);
+                    ENUM_STRING_CASE(valueName, YGFlexDirectionColumnReverse);
+                    ENUM_STRING_CASE(valueName, YGFlexDirectionRow);
+                    ENUM_STRING_CASE(valueName, YGFlexDirectionRowReverse);
+                    UNHANDLED_CASE();
                 }
                 params->onDirection(params, prop, node, prop->getter.d(node), valueName);
             }
@@ -317,10 +326,10 @@ void EnumNodeProperties(YGNodeConstRef node, EnumPropertiesParams* params, bool 
             {
                 switch (prop->getter.w(node))
                 {
-                ENUM_STRING_CASE(valueName, YGWrapNoWrap);
-                ENUM_STRING_CASE(valueName, YGWrapWrap);
-                ENUM_STRING_CASE(valueName, YGWrapWrapReverse);
-                UNHANDLED_CASE();
+                    ENUM_STRING_CASE(valueName, YGWrapNoWrap);
+                    ENUM_STRING_CASE(valueName, YGWrapWrap);
+                    ENUM_STRING_CASE(valueName, YGWrapWrapReverse);
+                    UNHANDLED_CASE();
                 }
                 params->onWrap(params, prop, node, prop->getter.w(node), valueName);
             }
@@ -333,11 +342,11 @@ void EnumNodeProperties(YGNodeConstRef node, EnumPropertiesParams* params, bool 
                 {
                     switch (i)
                     {
-                    ENUM_STRING_CASE(valueName, YGEdgeLeft);
-                    ENUM_STRING_CASE(valueName, YGEdgeRight);
-                    ENUM_STRING_CASE(valueName, YGEdgeTop);
-                    ENUM_STRING_CASE(valueName, YGEdgeBottom);
-                    UNHANDLED_CASE();
+                        ENUM_STRING_CASE(valueName, YGEdgeLeft);
+                        ENUM_STRING_CASE(valueName, YGEdgeRight);
+                        ENUM_STRING_CASE(valueName, YGEdgeTop);
+                        ENUM_STRING_CASE(valueName, YGEdgeBottom);
+                        UNHANDLED_CASE();
                     }
 
                     params->onEdgeValue(params, prop, node, i, valueName, ygValue);
@@ -349,11 +358,11 @@ void EnumNodeProperties(YGNodeConstRef node, EnumPropertiesParams* params, bool 
             {
                 switch (i)
                 {
-                ENUM_STRING_CASE(valueName, YGEdgeLeft);
-                ENUM_STRING_CASE(valueName, YGEdgeRight);
-                ENUM_STRING_CASE(valueName, YGEdgeTop);
-                ENUM_STRING_CASE(valueName, YGEdgeBottom);
-                UNHANDLED_CASE();
+                    ENUM_STRING_CASE(valueName, YGEdgeLeft);
+                    ENUM_STRING_CASE(valueName, YGEdgeRight);
+                    ENUM_STRING_CASE(valueName, YGEdgeTop);
+                    ENUM_STRING_CASE(valueName, YGEdgeBottom);
+                    UNHANDLED_CASE();
                 }
 
                 if (!ignoreDefault || fcomp(prop->getter.ef(node, i), prop->default_.ef[i]))
@@ -367,13 +376,13 @@ void EnumNodeProperties(YGNodeConstRef node, EnumPropertiesParams* params, bool 
             {
                 switch (prop->getter.j(node))
                 {
-                ENUM_STRING_CASE(valueName, YGJustifyFlexStart);
-                ENUM_STRING_CASE(valueName, YGJustifyCenter);
-                ENUM_STRING_CASE(valueName, YGJustifyFlexEnd);
-                ENUM_STRING_CASE(valueName, YGJustifySpaceBetween);
-                ENUM_STRING_CASE(valueName, YGJustifySpaceAround);
-                ENUM_STRING_CASE(valueName, YGJustifySpaceEvenly);
-                UNHANDLED_CASE();
+                    ENUM_STRING_CASE(valueName, YGJustifyFlexStart);
+                    ENUM_STRING_CASE(valueName, YGJustifyCenter);
+                    ENUM_STRING_CASE(valueName, YGJustifyFlexEnd);
+                    ENUM_STRING_CASE(valueName, YGJustifySpaceBetween);
+                    ENUM_STRING_CASE(valueName, YGJustifySpaceAround);
+                    ENUM_STRING_CASE(valueName, YGJustifySpaceEvenly);
+                    UNHANDLED_CASE();
                 }
                 params->onJustify(params, prop, node, prop->getter.j(node), valueName);
             }
@@ -383,10 +392,10 @@ void EnumNodeProperties(YGNodeConstRef node, EnumPropertiesParams* params, bool 
             {
                 switch (prop->getter.o(node))
                 {
-                ENUM_STRING_CASE(valueName, YGOverflowVisible);
-                ENUM_STRING_CASE(valueName, YGOverflowHidden);
-                ENUM_STRING_CASE(valueName, YGOverflowScroll);
-                UNHANDLED_CASE();
+                    ENUM_STRING_CASE(valueName, YGOverflowVisible);
+                    ENUM_STRING_CASE(valueName, YGOverflowHidden);
+                    ENUM_STRING_CASE(valueName, YGOverflowScroll);
+                    UNHANDLED_CASE();
                 }
                 params->onOverflow(params, prop, node, prop->getter.o(node), valueName);
             }
@@ -396,9 +405,9 @@ void EnumNodeProperties(YGNodeConstRef node, EnumPropertiesParams* params, bool 
             {
                 switch (prop->getter.disp(node))
                 {
-                ENUM_STRING_CASE(valueName, YGDisplayFlex);
-                ENUM_STRING_CASE(valueName, YGDisplayNone);
-                UNHANDLED_CASE();
+                    ENUM_STRING_CASE(valueName, YGDisplayFlex);
+                    ENUM_STRING_CASE(valueName, YGDisplayNone);
+                    UNHANDLED_CASE();
                 }
                 params->onDisplay(params, prop, node, prop->getter.disp(node), valueName);
             }
