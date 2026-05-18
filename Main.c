@@ -812,7 +812,7 @@ static void OnSize(AppState* appState, HWND hwnd, WORD width, WORD height)
     if (!gTimerArmed)
     {
         gTimerArmed = true;
-        SetTimer(hwnd, IDT_LAYOUT, 18, NULL);
+        SetTimer(hwnd, IDT_LAYOUT, 100, NULL);
     }
 }
 

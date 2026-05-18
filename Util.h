@@ -27,6 +27,10 @@ void DumpFlex(const char* title, YGNodeRef flex);
 typedef struct FlexData
 {
     HWND hwnd;
+    float cachedLeft;
+    float cachedTop;
+    float cachedWidth;
+    float cachedHeight;
 } FlexData;
 
 YGNodeRef CreateFlex(float width, float height, HWND hWnd);

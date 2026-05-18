@@ -141,15 +141,29 @@ static void LayoutChildFlex(HDWP hDwp, YGNodeRef flex, float originX, float orig
             float width = YGNodeLayoutGetWidth(node);
 
             float height = YGNodeLayoutGetHeight(node);
-            if (!strcmp(className, "ComboBox") || !strcmp(className, "EdgeValueView"))
+            if (className[0] == 'C' || className[0] == 'E')
             {
-                height = comboHeight;
+                if (!strcmp(className, "ComboBox") || !strcmp(className, "EdgeValueView"))
+                {
+                    height = comboHeight;
+                }
             }
 
-            DeferWindowPos(hDwp, data->hwnd, NULL,
-                (int)left, (int)top,
-                (int)width, (int)height,
-                SWP_NOZORDER);
+            if (data->cachedLeft != left ||
+                data->cachedTop != top ||
+                data->cachedWidth != width ||
+                data->cachedHeight != height
+            )
+            {
+                DeferWindowPos(hDwp, data->hwnd, NULL,
+                    (int)left, (int)top,
+                    (int)width, (int)height,
+                    SWP_NOZORDER);
+                data->cachedLeft = left;
+                data->cachedTop = top;
+                data->cachedWidth = width;
+                data->cachedHeight = height;
+            }
         }
 
         LayoutChildFlex(hDwp, node, left, top, comboHeight);
